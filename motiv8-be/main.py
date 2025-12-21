@@ -17,6 +17,7 @@ from image_generator import get_image_generator
 from database import get_db, init_db
 from models import User
 from migrate import migrate_database
+from email_utils import send_motivation_email
 from auth import (
     create_access_token,
     get_current_user,
@@ -193,7 +194,10 @@ class GenerateRequest(BaseModel):
 
 
 @app.post("/api/generate")
-async def generate_image(request: GenerateRequest):
+async def generate_image(
+    request: GenerateRequest,
+    current_user: User = Depends(get_current_user)
+):
     """Generate an image using a face embedding"""
     try:
         # Check if embedding file exists
@@ -243,13 +247,21 @@ async def generate_image(request: GenerateRequest):
 
         logger.info(f"Image generated and saved: {generated_path}")
 
+        # Send motivation email to user
+        email_sent = send_motivation_email(current_user.email, str(generated_path))
+        if email_sent:
+            logger.info(f"Motivation email sent to {current_user.email}")
+        else:
+            logger.warning(f"Failed to send motivation email to {current_user.email}")
+
         return JSONResponse(
             status_code=200,
             content={
                 "message": "Image generated successfully",
                 "generated_filename": generated_filename,
                 "embedding_filename": request.embedding_filename,
-                "prompt": request.prompt
+                "prompt": request.prompt,
+                "email_sent": email_sent
             }
         )
 

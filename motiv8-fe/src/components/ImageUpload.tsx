@@ -129,6 +129,7 @@ function ImageUpload() {
     setGeneratedImageUrl(null);
 
     try {
+      const token = localStorage.getItem('auth_token');
       const response = await axios.post<GenerateResponse>(
         `${API_BASE_URL}/api/generate`,
         {
@@ -139,6 +140,11 @@ function ImageUpload() {
           num_inference_steps: 30,
           guidance_scale: 7.5,
           scale: 0.8
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
         }
       );
 
