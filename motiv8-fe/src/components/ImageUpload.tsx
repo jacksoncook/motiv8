@@ -130,6 +130,9 @@ function ImageUpload() {
 
     try {
       const token = localStorage.getItem('auth_token');
+      // Generate a random seed for variation in results
+      const randomSeed = Math.floor(Math.random() * 1000000);
+
       const response = await axios.post<GenerateResponse>(
         `${API_BASE_URL}/api/generate`,
         {
@@ -139,7 +142,8 @@ function ImageUpload() {
           negative_prompt: "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality",
           num_inference_steps: 30,
           guidance_scale: 7.5,
-          scale: 0.8
+          scale: 0.8,
+          seed: randomSeed
         },
         {
           headers: {
