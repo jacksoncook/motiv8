@@ -11,7 +11,8 @@
       "Bash(tree:*)",
       "Bash(npm install:*)",
       "Bash(npm cache clean:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(/Users/jcook/motiv8/motiv8-be/.venv/bin/pip install:*)"
     ],
     "deny": [],
     "ask": []

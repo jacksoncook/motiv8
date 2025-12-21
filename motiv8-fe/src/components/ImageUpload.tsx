@@ -1,0 +1,128 @@
+import { useState } from 'react';
+import axios from 'axios';
+import './ImageUpload.css';
+
+const API_BASE_URL = 'http://localhost:8000';
+
+interface UploadResponse {
+  message: string;
+  filename: string;
+  original_filename: string;
+  content_type: string;
+  size_bytes: number;
+}
+
+function ImageUpload() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setError(null);
+      setUploadResult(null);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setError('Please select a file first');
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+    setUploadResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await axios.post<UploadResponse>(
+        `${API_BASE_URL}/api/upload`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      setUploadResult(response.data);
+      setSelectedFile(null);
+      setPreviewUrl(null);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  };
+
+  return (
+    <div className="upload-container">
+      <h2>Image Upload</h2>
+
+      <div className="upload-section">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          disabled={uploading}
+          id="file-input"
+        />
+        <label htmlFor="file-input" className="file-label">
+          {selectedFile ? selectedFile.name : 'Choose an image'}
+        </label>
+
+        {previewUrl && (
+          <div className="preview-section">
+            <img src={previewUrl} alt="Preview" className="preview-image" />
+          </div>
+        )}
+
+        <button
+          onClick={handleUpload}
+          disabled={!selectedFile || uploading}
+          className="upload-button"
+        >
+          {uploading ? 'Uploading...' : 'Upload Image'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="message error">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      {uploadResult && (
+        <div className="message success">
+          <h3>Upload Successful!</h3>
+          <p><strong>Original filename:</strong> {uploadResult.original_filename}</p>
+          <p><strong>Saved as:</strong> {uploadResult.filename}</p>
+          <p><strong>Type:</strong> {uploadResult.content_type}</p>
+          <p><strong>Size:</strong> {formatFileSize(uploadResult.size_bytes)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ImageUpload;

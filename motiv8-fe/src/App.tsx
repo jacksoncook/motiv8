@@ -1,11 +1,10 @@
 import './App.css'
+import ImageUpload from './components/ImageUpload'
 
 function App() {
   return (
     <div className="app">
-      <div className="todo-container">
-        <h1>TODO</h1>
-      </div>
+      <ImageUpload />
     </div>
   )
 }
