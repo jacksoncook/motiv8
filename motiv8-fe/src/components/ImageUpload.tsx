@@ -7,9 +7,14 @@ const API_BASE_URL = 'http://localhost:8000';
 interface UploadResponse {
   message: string;
   filename: string;
+  embedding_filename: string;
   original_filename: string;
   content_type: string;
   size_bytes: number;
+  num_faces: number;
+  bbox: number[];
+  embedding_shape: number[];
+  embedding_dtype: string;
 }
 
 function ImageUpload() {
@@ -114,9 +119,13 @@ function ImageUpload() {
 
       {uploadResult && (
         <div className="message success">
-          <h3>Upload Successful!</h3>
+          <h3>Face Embedding Extracted!</h3>
           <p><strong>Original filename:</strong> {uploadResult.original_filename}</p>
-          <p><strong>Saved as:</strong> {uploadResult.filename}</p>
+          <p><strong>Image saved as:</strong> {uploadResult.filename}</p>
+          <p><strong>Embedding saved as:</strong> {uploadResult.embedding_filename}</p>
+          <p><strong>Faces detected:</strong> {uploadResult.num_faces}</p>
+          <p><strong>Embedding shape:</strong> [{uploadResult.embedding_shape.join(', ')}]</p>
+          <p><strong>Face bounding box:</strong> [{uploadResult.bbox.map(n => n.toFixed(1)).join(', ')}]</p>
           <p><strong>Type:</strong> {uploadResult.content_type}</p>
           <p><strong>Size:</strong> {formatFileSize(uploadResult.size_bytes)}</p>
         </div>
