@@ -7,7 +7,11 @@
       "Bash(python main.py:*)",
       "Bash(.venv/bin/pip install:*)",
       "Bash(.venv/bin/python:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(tree:*)",
+      "Bash(npm install:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

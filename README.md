@@ -6,8 +6,8 @@ A full-stack application with Python backend and future frontend.
 
 ```
 motiv8/
-├── motiv8-be/          # Python backend service
-└── (frontend TBD)      # Frontend application (coming soon)
+├── motiv8-be/          # Python backend service (FastAPI)
+└── motiv8-fe/          # Frontend application (React + TypeScript + Vite)
 ```
 
 ## Backend Service (motiv8-be)
@@ -79,3 +79,65 @@ docker run -p 8000:8000 motiv8-api
 Once the server is running, visit:
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
+
+## Frontend Application (motiv8-fe)
+
+A React + TypeScript frontend built with Vite.
+
+### Prerequisites
+
+- Node.js 20+ or higher
+- npm (Node package manager)
+
+### Local Development Setup
+
+1. **Navigate to the frontend directory:**
+   ```bash
+   cd motiv8-fe
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
+   The frontend will start with Hot Module Replacement (HMR) enabled.
+
+The app will be available at `http://localhost:5173` (default Vite port)
+
+### Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run lint` - Lint TypeScript files
+- `npm run preview` - Preview production build
+
+### Docker
+
+Build and run with Docker:
+```bash
+cd motiv8-fe
+docker build -t motiv8-fe .
+docker run -p 80:80 motiv8-fe
+```
+
+## Development Workflow
+
+1. **Start the backend:**
+   ```bash
+   cd motiv8-be
+   source .venv/bin/activate
+   python main.py
+   ```
+   Backend runs on http://localhost:8000
+
+2. **Start the frontend:**
+   ```bash
+   cd motiv8-fe
+   npm run dev
+   ```
+   Frontend runs on http://localhost:5173
