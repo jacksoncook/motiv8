@@ -17,12 +17,22 @@ interface UploadResponse {
   embedding_dtype: string;
 }
 
+interface GenerateResponse {
+  message: string;
+  generated_filename: string;
+  embedding_filename: string;
+  prompt: string;
+}
+
 function ImageUpload() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generateResult, setGenerateResult] = useState<GenerateResponse | null>(null);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -80,6 +90,38 @@ function ImageUpload() {
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   };
 
+  const handleGenerate = async () => {
+    if (!uploadResult?.embedding_filename) {
+      setError('Please upload an image first');
+      return;
+    }
+
+    setGenerating(true);
+    setError(null);
+    setGenerateResult(null);
+    setGeneratedImageUrl(null);
+
+    try {
+      const response = await axios.post<GenerateResponse>(
+        `${API_BASE_URL}/api/generate`,
+        {
+          embedding_filename: uploadResult.embedding_filename,
+          prompt: "professional portrait photo of a person with extremely muscular bodybuilder physique, highly detailed, 8k, photorealistic",
+          negative_prompt: "blurry, low quality, distorted, deformed, ugly, bad anatomy",
+          num_inference_steps: 30,
+          guidance_scale: 7.5
+        }
+      );
+
+      setGenerateResult(response.data);
+      setGeneratedImageUrl(`${API_BASE_URL}/api/generated/${response.data.generated_filename}`);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Image generation failed. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <div className="upload-container">
       <h2>Image Upload</h2>
@@ -128,6 +170,26 @@ function ImageUpload() {
           <p><strong>Face bounding box:</strong> [{uploadResult.bbox.map(n => n.toFixed(1)).join(', ')}]</p>
           <p><strong>Type:</strong> {uploadResult.content_type}</p>
           <p><strong>Size:</strong> {formatFileSize(uploadResult.size_bytes)}</p>
+
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="upload-button"
+            style={{ marginTop: '1rem' }}
+          >
+            {generating ? 'Generating Muscular Body Image...' : 'Generate Muscular Body Image'}
+          </button>
+        </div>
+      )}
+
+      {generatedImageUrl && (
+        <div className="message success">
+          <h3>Generated Image</h3>
+          <div className="preview-section">
+            <img src={generatedImageUrl} alt="Generated" className="preview-image" />
+          </div>
+          <p><strong>Generated filename:</strong> {generateResult?.generated_filename}</p>
+          <p><strong>Prompt used:</strong> {generateResult?.prompt}</p>
         </div>
       )}
     </div>
