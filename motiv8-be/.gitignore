@@ -44,6 +44,7 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+motiv8.db
 
 # Uploads
 uploads/

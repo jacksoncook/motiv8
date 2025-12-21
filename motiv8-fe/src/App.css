@@ -2,8 +2,16 @@
   width: 100%;
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
+}
+
+.loading-container {
+  display: flex;
   justify-content: center;
   align-items: center;
+  min-height: 100vh;
+  color: #888;
+  font-size: 1.2rem;
 }
 
 .todo-container {

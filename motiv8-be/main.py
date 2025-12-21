@@ -1,6 +1,7 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 import uvicorn
 import os
@@ -8,8 +9,21 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 import logging
+from authlib.integrations.starlette_client import OAuth
+from sqlalchemy.orm import Session
+
 from faceid_extractor import get_face_extractor
 from image_generator import get_image_generator
+from database import get_db, init_db
+from models import User
+from auth import (
+    create_access_token,
+    get_current_user,
+    get_or_create_user,
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    GOOGLE_REDIRECT_URI
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +39,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add session middleware for OAuth
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")
+)
+
+# Configure OAuth
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'},
+)
+
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup"""
+    init_db()
+    logger.info("Database initialized")
 
 # Create uploads, embeddings, and generated directories
 UPLOAD_DIR = Path("uploads")
@@ -200,6 +237,66 @@ async def get_generated_image(filename: str):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(file_path)
+
+
+# ============================================================================
+# Authentication Endpoints
+# ============================================================================
+
+@app.get("/auth/login")
+async def login(request: Request):
+    """Initiate Google OAuth login"""
+    redirect_uri = request.url_for('auth_callback')
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth/callback")
+async def auth_callback(request: Request, db: Session = Depends(get_db)):
+    """Handle Google OAuth callback"""
+    try:
+        # Exchange authorization code for access token
+        token = await oauth.google.authorize_access_token(request)
+
+        # Get user info from Google
+        user_info = token.get('userinfo')
+        if not user_info:
+            raise HTTPException(status_code=400, detail="Failed to get user info from Google")
+
+        email = user_info.get('email')
+        google_id = user_info.get('sub')
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not provided by Google")
+
+        # Get or create user in database
+        user = get_or_create_user(db, email=email, google_id=google_id)
+
+        # Create JWT token
+        access_token = create_access_token(data={"sub": user.id})
+
+        # Redirect to frontend with token
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        return RedirectResponse(url=f"{frontend_url}/auth/callback?token={access_token}")
+
+    except Exception as e:
+        logger.error(f"OAuth callback error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
+
+
+@app.get("/auth/me")
+async def get_me(current_user: User = Depends(get_current_user)):
+    """Get current authenticated user"""
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None
+    }
+
+
+@app.post("/auth/logout")
+async def logout():
+    """Logout user (client-side token removal)"""
+    return {"message": "Logged out successfully"}
 
 
 if __name__ == "__main__":
