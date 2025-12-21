@@ -10,6 +10,7 @@ interface User {
   has_selfie: boolean;
   selfie_filename: string | null;
   selfie_embedding_filename: string | null;
+  workout_days: Record<string, boolean>;
 }
 
 interface AuthContextType {

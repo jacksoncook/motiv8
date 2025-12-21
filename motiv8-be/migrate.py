@@ -43,6 +43,15 @@ def migrate_database():
         else:
             print('✓ selfie_embedding_filename column already exists')
 
+        if 'workout_days' not in column_names:
+            print('Adding workout_days column...')
+            # Add workout_days as JSON column with default value
+            default_workout_days = '{"monday": false, "tuesday": false, "wednesday": false, "thursday": false, "friday": false, "saturday": false, "sunday": false}'
+            cursor.execute(f"ALTER TABLE users ADD COLUMN workout_days JSON DEFAULT '{default_workout_days}'")
+            print('✓ Added workout_days column')
+        else:
+            print('✓ workout_days column already exists')
+
         conn.commit()
         conn.close()
         print('Database migration completed successfully!')

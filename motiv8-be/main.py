@@ -328,13 +328,27 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
 @app.get("/auth/me")
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current authenticated user with selfie information"""
+    # Ensure workout_days has default value if None
+    workout_days = current_user.workout_days
+    if workout_days is None:
+        workout_days = {
+            "monday": False,
+            "tuesday": False,
+            "wednesday": False,
+            "thursday": False,
+            "friday": False,
+            "saturday": False,
+            "sunday": False
+        }
+
     return {
         "id": current_user.id,
         "email": current_user.email,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
         "has_selfie": current_user.selfie_filename is not None,
         "selfie_filename": current_user.selfie_filename,
-        "selfie_embedding_filename": current_user.selfie_embedding_filename
+        "selfie_embedding_filename": current_user.selfie_embedding_filename,
+        "workout_days": workout_days
     }
 
 
@@ -358,6 +372,35 @@ async def get_selfie_image(
 async def logout():
     """Logout user (client-side token removal)"""
     return {"message": "Logged out successfully"}
+
+
+class WorkoutDaysUpdate(BaseModel):
+    """Request body for updating workout days"""
+    workout_days: dict
+
+
+@app.put("/api/workout-days")
+async def update_workout_days(
+    request: WorkoutDaysUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update user's workout days"""
+    try:
+        # Update workout days
+        current_user.workout_days = request.workout_days
+        db.commit()
+        db.refresh(current_user)
+
+        logger.info(f"Updated workout days for user {current_user.email}")
+
+        return {
+            "message": "Workout days updated successfully",
+            "workout_days": current_user.workout_days
+        }
+    except Exception as e:
+        logger.error(f"Failed to update workout days: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update workout days: {str(e)}")
 
 
 if __name__ == "__main__":

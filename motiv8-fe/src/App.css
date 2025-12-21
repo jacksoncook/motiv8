@@ -6,6 +6,27 @@
   background-color: #ffffff;
 }
 
+.main-content {
+  display: flex;
+  gap: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  width: 100%;
+  align-items: flex-start;
+}
+
+.main-content > * {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+  }
+}
+
 .loading-container {
   display: flex;
   justify-content: center;

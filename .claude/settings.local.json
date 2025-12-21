@@ -18,7 +18,8 @@
       "Bash(git clone:*)",
       "Bash(git rm:*)",
       "Bash(lsof:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(xargs kill -9)"
     ],
     "deny": [],
     "ask": []

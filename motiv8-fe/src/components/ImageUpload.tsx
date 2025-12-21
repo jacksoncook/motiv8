@@ -159,51 +159,83 @@ function ImageUpload() {
 
   return (
     <div className="upload-container">
-      <h2>{user?.has_selfie ? 'Update Your Selfie' : 'Upload Your Selfie'}</h2>
-
       {currentSelfieUrl && (
         <div className="current-selfie-section">
-          <h3>Current Selfie</h3>
+          <h3>Your Selfie</h3>
           <div className="preview-section">
-            <img src={currentSelfieUrl} alt="Current selfie" className="preview-image" />
+            <img src={currentSelfieUrl} alt="Your selfie" className="preview-image" />
           </div>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="upload-button"
-            style={{ marginTop: '1rem' }}
-          >
-            {generating ? 'Generating Muscular Body Image...' : 'Generate Muscular Body Image'}
-          </button>
+
+          <div className="upload-section">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              disabled={uploading}
+              id="file-input"
+            />
+            <label htmlFor="file-input" className="file-label">
+              {selectedFile ? selectedFile.name : 'Choose an image'}
+            </label>
+
+            {previewUrl && (
+              <div className="preview-section">
+                <img src={previewUrl} alt="Preview" className="preview-image" />
+              </div>
+            )}
+
+            <button
+              onClick={handleUpload}
+              disabled={!selectedFile || uploading}
+              className="upload-button"
+            >
+              {uploading ? 'Uploading...' : 'Update Selfie'}
+            </button>
+          </div>
+
+          {user?.email === 'jacksoncook73@gmail.com' && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="upload-button generate-button"
+            >
+              {generating ? 'Generating Muscular Body Image...' : 'Generate Muscular Body Image'}
+            </button>
+          )}
         </div>
       )}
 
-      <div className="upload-section">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileSelect}
-          disabled={uploading}
-          id="file-input"
-        />
-        <label htmlFor="file-input" className="file-label">
-          {selectedFile ? selectedFile.name : 'Choose an image'}
-        </label>
+      {!currentSelfieUrl && (
+        <div className="current-selfie-section">
+          <h3>Your Selfie</h3>
+          <div className="upload-section">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              disabled={uploading}
+              id="file-input-initial"
+            />
+            <label htmlFor="file-input-initial" className="file-label">
+              {selectedFile ? selectedFile.name : 'Choose an image'}
+            </label>
 
-        {previewUrl && (
-          <div className="preview-section">
-            <img src={previewUrl} alt="Preview" className="preview-image" />
+            {previewUrl && (
+              <div className="preview-section">
+                <img src={previewUrl} alt="Preview" className="preview-image" />
+              </div>
+            )}
+
+            <button
+              onClick={handleUpload}
+              disabled={!selectedFile || uploading}
+              className="upload-button"
+            >
+              {uploading ? 'Uploading...' : 'Upload Selfie'}
+            </button>
           </div>
-        )}
-
-        <button
-          onClick={handleUpload}
-          disabled={!selectedFile || uploading}
-          className="upload-button"
-        >
-          {uploading ? 'Uploading...' : (user?.has_selfie ? 'Update Selfie' : 'Upload Selfie')}
-        </button>
-      </div>
+        </div>
+      )}
 
       {error && (
         <div className="message error">
@@ -223,14 +255,15 @@ function ImageUpload() {
           <p><strong>Type:</strong> {uploadResult.content_type}</p>
           <p><strong>Size:</strong> {formatFileSize(uploadResult.size_bytes)}</p>
 
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="upload-button"
-            style={{ marginTop: '1rem' }}
-          >
-            {generating ? 'Generating Muscular Body Image...' : 'Generate Muscular Body Image'}
-          </button>
+          {user?.email === 'jacksoncook73@gmail.com' && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="upload-button generate-button"
+            >
+              {generating ? 'Generating Muscular Body Image...' : 'Generate Muscular Body Image'}
+            </button>
+          )}
         </div>
       )}
 

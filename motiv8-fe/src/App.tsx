@@ -5,6 +5,7 @@ import Header from './components/Header'
 import AuthCallback from './pages/AuthCallback'
 import Login from './pages/Login'
 import ImageUpload from './components/ImageUpload'
+import WorkoutDays from './components/WorkoutDays'
 
 function AppContent() {
   const { user, isLoading } = useAuth();
@@ -26,7 +27,10 @@ function AppContent() {
           user ? (
             <div className="app">
               <Header />
-              <ImageUpload />
+              <div className="main-content">
+                <ImageUpload />
+                <WorkoutDays />
+              </div>
             </div>
           ) : (
             <Login />
