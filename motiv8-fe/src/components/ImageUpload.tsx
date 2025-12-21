@@ -114,7 +114,11 @@ function ImageUpload() {
   };
 
   const handleGenerate = async () => {
-    if (!uploadResult?.embedding_filename) {
+    // Use uploadResult if available (just uploaded), otherwise use user's existing selfie
+    const embeddingFilename = uploadResult?.embedding_filename || user?.selfie_embedding_filename;
+    const imageFilename = uploadResult?.filename || user?.selfie_filename;
+
+    if (!embeddingFilename) {
       setError('Please upload an image first');
       return;
     }
@@ -128,8 +132,8 @@ function ImageUpload() {
       const response = await axios.post<GenerateResponse>(
         `${API_BASE_URL}/api/generate`,
         {
-          embedding_filename: uploadResult.embedding_filename,
-          image_filename: uploadResult.filename,  // Pass original image for CLIP encoding
+          embedding_filename: embeddingFilename,
+          image_filename: imageFilename,  // Pass original image for CLIP encoding
           prompt: "professional portrait photo of a person with extremely muscular bodybuilder physique, highly detailed, 8k, photorealistic",
           negative_prompt: "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality",
           num_inference_steps: 30,
@@ -157,6 +161,14 @@ function ImageUpload() {
           <div className="preview-section">
             <img src={currentSelfieUrl} alt="Current selfie" className="preview-image" />
           </div>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="upload-button"
+            style={{ marginTop: '1rem' }}
+          >
+            {generating ? 'Generating Muscular Body Image...' : 'Generate Muscular Body Image'}
+          </button>
         </div>
       )}
 
