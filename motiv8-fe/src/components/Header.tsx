@@ -7,7 +7,10 @@ function Header() {
   return (
     <header className="app-header">
       <div className="header-container">
-        <h1 className="app-title">Motiv8</h1>
+        <div className="header-title-section">
+          <img src="/motiv8.png" alt="Motiv8 Logo" className="header-logo" />
+          <h1 className="app-title">Motiv8</h1>
+        </div>
         <div className="auth-section">
           {isLoading ? (
             <span>Loading...</span>

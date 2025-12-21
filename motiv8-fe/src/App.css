@@ -3,6 +3,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: #ffffff;
 }
 
 .loading-container {
@@ -10,7 +11,7 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  color: #888;
+  color: #6b7280;
   font-size: 1.2rem;
 }
 
@@ -25,8 +26,3 @@
   font-weight: 700;
 }
 
-@media (prefers-color-scheme: light) {
-  .todo-container h1 {
-    color: #535bf2;
-  }
-}

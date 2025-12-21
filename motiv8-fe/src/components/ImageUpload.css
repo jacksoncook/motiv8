@@ -13,13 +13,13 @@
 .current-selfie-section {
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background-color: #1a1a1a;
-  border-radius: 8px;
-  border: 1px solid #333;
+  background-color: #faf9ff;
+  border-radius: 12px;
+  border: 2px solid #ddd6fe;
 }
 
 .current-selfie-section h3 {
-  color: #888;
+  color: #6b7280;
   font-size: 1rem;
   margin: 0 0 1rem 0;
   text-align: center;
@@ -39,9 +39,9 @@ input[type="file"] {
 .file-label {
   display: inline-block;
   padding: 0.75rem 1.5rem;
-  background-color: #f0f0f0;
-  color: #333;
-  border: 2px dashed #646cff;
+  background-color: #faf9ff;
+  color: #213547;
+  border: 2px dashed #c7d2fe;
   border-radius: 8px;
   cursor: pointer;
   text-align: center;
@@ -85,7 +85,8 @@ input[type="file"] {
 }
 
 .upload-button:disabled {
-  background-color: #ccc;
+  background-color: #e5e7eb;
+  color: #9ca3af;
   cursor: not-allowed;
   transform: none;
 }
@@ -119,14 +120,3 @@ input[type="file"] {
   font-size: 0.9rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  .file-label {
-    background-color: #2a2a2a;
-    color: #e0e0e0;
-  }
-
-  .file-label:hover {
-    background-color: #646cff;
-    color: white;
-  }
-}

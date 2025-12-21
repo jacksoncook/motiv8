@@ -1,6 +1,6 @@
 .app-header {
-  background-color: #1a1a1a;
-  border-bottom: 1px solid #333;
+  background-color: #ffffff;
+  border-bottom: 2px solid #ddd6fe;
   padding: 1rem 0;
 }
 
@@ -11,6 +11,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-title-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-logo {
+  height: 40px;
+  width: auto;
 }
 
 .app-title {
@@ -32,7 +43,7 @@
 }
 
 .user-email {
-  color: #888;
+  color: #6b7280;
   font-size: 0.9rem;
 }
 
