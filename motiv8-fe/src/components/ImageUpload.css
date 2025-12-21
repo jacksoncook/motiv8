@@ -10,6 +10,21 @@
   text-align: center;
 }
 
+.current-selfie-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.current-selfie-section h3 {
+  color: #888;
+  font-size: 1rem;
+  margin: 0 0 1rem 0;
+  text-align: center;
+}
+
 .upload-section {
   display: flex;
   flex-direction: column;

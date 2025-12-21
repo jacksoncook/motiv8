@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 import './ImageUpload.css';
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -25,6 +26,7 @@ interface GenerateResponse {
 }
 
 function ImageUpload() {
+  const { user, refreshUser } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
@@ -33,6 +35,17 @@ function ImageUpload() {
   const [generating, setGenerating] = useState(false);
   const [generateResult, setGenerateResult] = useState<GenerateResponse | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [currentSelfieUrl, setCurrentSelfieUrl] = useState<string | null>(null);
+
+  // Load current selfie if user has one
+  useEffect(() => {
+    if (user?.has_selfie && user.selfie_filename) {
+      const token = localStorage.getItem('auth_token');
+      setCurrentSelfieUrl(`${API_BASE_URL}/api/selfie/${user.selfie_filename}?token=${token}`);
+    } else {
+      setCurrentSelfieUrl(null);
+    }
+  }, [user]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -64,12 +77,14 @@ function ImageUpload() {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
+      const token = localStorage.getItem('auth_token');
       const response = await axios.post<UploadResponse>(
         `${API_BASE_URL}/api/upload`,
         formData,
         {
           headers: {
             'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`,
           },
         }
       );
@@ -77,6 +92,14 @@ function ImageUpload() {
       setUploadResult(response.data);
       setSelectedFile(null);
       setPreviewUrl(null);
+
+      // Refresh user data to get updated selfie information
+      await refreshUser();
+
+      // Update current selfie URL after successful upload
+      if (response.data.filename) {
+        setCurrentSelfieUrl(`${API_BASE_URL}/api/selfie/${response.data.filename}?token=${token}`);
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Upload failed. Please try again.');
     } finally {
@@ -126,7 +149,16 @@ function ImageUpload() {
 
   return (
     <div className="upload-container">
-      <h2>Image Upload</h2>
+      <h2>{user?.has_selfie ? 'Update Your Selfie' : 'Upload Your Selfie'}</h2>
+
+      {currentSelfieUrl && (
+        <div className="current-selfie-section">
+          <h3>Current Selfie</h3>
+          <div className="preview-section">
+            <img src={currentSelfieUrl} alt="Current selfie" className="preview-image" />
+          </div>
+        </div>
+      )}
 
       <div className="upload-section">
         <input
@@ -151,7 +183,7 @@ function ImageUpload() {
           disabled={!selectedFile || uploading}
           className="upload-button"
         >
-          {uploading ? 'Uploading...' : 'Upload Image'}
+          {uploading ? 'Uploading...' : (user?.has_selfie ? 'Update Selfie' : 'Upload Selfie')}
         </button>
       </div>
 

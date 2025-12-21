@@ -15,6 +15,11 @@ class User(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True, nullable=False)
     google_id = Column(String, unique=True, index=True, nullable=True)  # Optional: store Google's user ID
+
+    # Selfie fields - one selfie per user
+    selfie_filename = Column(String, nullable=True)  # Original uploaded image filename
+    selfie_embedding_filename = Column(String, nullable=True)  # Face embedding filename
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -7,6 +7,9 @@ interface User {
   id: string;
   email: string;
   created_at: string;
+  has_selfie: boolean;
+  selfie_filename: string | null;
+  selfie_embedding_filename: string | null;
 }
 
 interface AuthContextType {
@@ -15,6 +18,7 @@ interface AuthContextType {
   login: () => void;
   logout: () => void;
   setToken: (token: string) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,6 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      await fetchUser(token);
+    }
+  };
+
   const login = () => {
     // Redirect to backend OAuth login
     window.location.href = `${API_BASE_URL}/auth/login`;
@@ -66,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, setToken }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, setToken, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -16,9 +16,11 @@ from faceid_extractor import get_face_extractor
 from image_generator import get_image_generator
 from database import get_db, init_db
 from models import User
+from migrate import migrate_database
 from auth import (
     create_access_token,
     get_current_user,
+    get_current_user_from_query,
     get_or_create_user,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
@@ -60,6 +62,9 @@ oauth.register(
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
+    # Run migrations first to add any missing columns to existing tables
+    migrate_database()
+    # Then ensure all tables exist
     init_db()
     logger.info("Database initialized")
 
@@ -87,12 +92,31 @@ async def hello():
 
 
 @app.post("/api/upload")
-async def upload_image(file: UploadFile = File(...)):
-    """Upload an image and extract FaceID embedding"""
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload a selfie image and extract FaceID embedding. Each user can have only one selfie."""
     try:
         # Validate file type
         if not file.content_type or not file.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="File must be an image")
+
+        # Delete old selfie files if updating
+        is_update = False
+        if current_user.selfie_filename:
+            is_update = True
+            old_image_path = UPLOAD_DIR / current_user.selfie_filename
+            old_embedding_path = EMBEDDINGS_DIR / current_user.selfie_embedding_filename
+
+            # Delete old files if they exist
+            if old_image_path.exists():
+                os.remove(old_image_path)
+                logger.info(f"Deleted old selfie: {old_image_path}")
+            if old_embedding_path.exists():
+                os.remove(old_embedding_path)
+                logger.info(f"Deleted old embedding: {old_embedding_path}")
 
         # Generate unique filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -100,7 +124,7 @@ async def upload_image(file: UploadFile = File(...)):
         unique_filename = f"{timestamp}_{file.filename}"
         file_path = UPLOAD_DIR / unique_filename
 
-        # Save image file temporarily
+        # Save image file
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
@@ -125,13 +149,18 @@ async def upload_image(file: UploadFile = File(...)):
 
         logger.info(f"Embedding saved: {embedding_path}")
 
-        # Optionally delete the original image to save space
-        # os.remove(file_path)
+        # Update user's selfie in database
+        current_user.selfie_filename = unique_filename
+        current_user.selfie_embedding_filename = embedding_filename
+        db.commit()
+        db.refresh(current_user)
+
+        logger.info(f"Updated user {current_user.email} selfie")
 
         return JSONResponse(
             status_code=200,
             content={
-                "message": "Face embedding extracted and saved successfully",
+                "message": "Selfie updated successfully" if is_update else "Selfie uploaded successfully",
                 "filename": unique_filename,
                 "embedding_filename": embedding_filename,
                 "original_filename": file.filename,
@@ -140,7 +169,8 @@ async def upload_image(file: UploadFile = File(...)):
                 "num_faces": result["num_faces"],
                 "bbox": result["bbox"],
                 "embedding_shape": list(result["embedding_shape"]),
-                "embedding_dtype": result["embedding_dtype"]
+                "embedding_dtype": result["embedding_dtype"],
+                "is_update": is_update
             }
         )
     except HTTPException as e:
@@ -285,12 +315,31 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/auth/me")
 async def get_me(current_user: User = Depends(get_current_user)):
-    """Get current authenticated user"""
+    """Get current authenticated user with selfie information"""
     return {
         "id": current_user.id,
         "email": current_user.email,
-        "created_at": current_user.created_at.isoformat() if current_user.created_at else None
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+        "has_selfie": current_user.selfie_filename is not None,
+        "selfie_filename": current_user.selfie_filename,
+        "selfie_embedding_filename": current_user.selfie_embedding_filename
     }
+
+
+@app.get("/api/selfie/{filename}")
+async def get_selfie_image(
+    filename: str,
+    current_user: User = Depends(get_current_user_from_query)
+):
+    """Serve authenticated user's selfie image"""
+    # Verify the requested file belongs to the current user
+    if current_user.selfie_filename != filename:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    file_path = UPLOAD_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Selfie not found")
+    return FileResponse(file_path)
 
 
 @app.post("/auth/logout")
