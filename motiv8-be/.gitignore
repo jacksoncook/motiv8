@@ -49,3 +49,9 @@ Thumbs.db
 uploads/
 embeddings/
 generated/
+
+# Models
+models/
+
+# Cloned repositories (we only need the copied modules)
+ip_adapter_repo/

@@ -12,7 +12,11 @@
       "Bash(npm install:*)",
       "Bash(npm cache clean:*)",
       "Bash(npm run dev:*)",
-      "Bash(/Users/jcook/motiv8/motiv8-be/.venv/bin/pip install:*)"
+      "Bash(/Users/jcook/motiv8/motiv8-be/.venv/bin/pip install:*)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "Bash(git clone:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []

@@ -106,10 +106,12 @@ function ImageUpload() {
         `${API_BASE_URL}/api/generate`,
         {
           embedding_filename: uploadResult.embedding_filename,
+          image_filename: uploadResult.filename,  // Pass original image for CLIP encoding
           prompt: "professional portrait photo of a person with extremely muscular bodybuilder physique, highly detailed, 8k, photorealistic",
-          negative_prompt: "blurry, low quality, distorted, deformed, ugly, bad anatomy",
+          negative_prompt: "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality",
           num_inference_steps: 30,
-          guidance_scale: 7.5
+          guidance_scale: 7.5,
+          scale: 0.8
         }
       );
 

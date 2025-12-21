@@ -116,11 +116,13 @@ async def upload_image(file: UploadFile = File(...)):
 class GenerateRequest(BaseModel):
     """Request body for image generation"""
     embedding_filename: str
+    image_filename: str | None = None  # Original uploaded image filename
     prompt: str = "professional portrait photo of a person with extremely muscular bodybuilder physique, highly detailed, 8k, photorealistic"
-    negative_prompt: str = "blurry, low quality, distorted, deformed, ugly, bad anatomy"
+    negative_prompt: str = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality"
     num_inference_steps: int = 30
     guidance_scale: float = 7.5
     seed: int | None = None
+    scale: float = 0.8  # IP-Adapter scale (0-1), controls how much face is preserved
 
 
 @app.post("/api/generate")
@@ -137,15 +139,25 @@ async def generate_image(request: GenerateRequest):
 
         logger.info(f"Generating image using embedding: {request.embedding_filename}")
 
+        # Get the original image path if provided
+        image_path = None
+        if request.image_filename:
+            image_path = UPLOAD_DIR / request.image_filename
+            if not image_path.exists():
+                logger.warning(f"Image file not found: {request.image_filename}")
+                image_path = None
+
         # Generate image
         generator = get_image_generator()
         result = generator.generate_image(
             embedding_path=str(embedding_path),
+            image_path=str(image_path) if image_path else None,
             prompt=request.prompt,
             negative_prompt=request.negative_prompt,
             num_inference_steps=request.num_inference_steps,
             guidance_scale=request.guidance_scale,
-            seed=request.seed
+            seed=request.seed,
+            scale=request.scale
         )
 
         if not result["success"]:
