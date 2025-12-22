@@ -29,11 +29,6 @@ echo "Installing Node.js 20.x..."
 curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
 sudo yum install -y nodejs
 
-# Install Python dependencies globally for system Python
-echo "Installing Python packages..."
-sudo pip3 install --upgrade pip || echo "pip upgrade skipped (already managed by system)"
-sudo pip3 install fastapi uvicorn sqlalchemy psycopg2-binary boto3 python-dotenv authlib httpx python-jose[cryptography]
-
 # Clone repository
 echo "Cloning repository..."
 if [ -d "$APP_DIR/.git" ]; then
