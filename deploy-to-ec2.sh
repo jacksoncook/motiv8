@@ -64,6 +64,17 @@ pip install --upgrade pip
 # Use lightweight requirements for web server (no ML dependencies)
 pip install -r requirements-web.txt
 
+# Create uploads directory with correct permissions
+echo "Setting up uploads directory..."
+mkdir -p $APP_DIR/motiv8-be/uploads
+sudo chown -R ec2-user:ec2-user $APP_DIR/motiv8-be/uploads
+chmod -R 755 $APP_DIR/motiv8-be/uploads
+
+# Fix frontend dist permissions for nginx
+echo "Setting frontend dist permissions..."
+sudo chown -R ec2-user:nginx $APP_DIR/motiv8-fe/dist
+sudo chmod -R 755 $APP_DIR/motiv8-fe/dist
+
 # Configure Nginx
 echo "Configuring Nginx..."
 sudo tee /etc/nginx/conf.d/motiv8.conf > /dev/null <<'EOF'
@@ -88,37 +99,80 @@ server {
     listen 443 ssl http2;
     server_name motiv8me.io www.motiv8me.io;
 
-    # SSL certificates (will be added by certbot)
-    # ssl_certificate /etc/letsencrypt/live/motiv8me.io/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/motiv8me.io/privkey.pem;
+    # SSL certificates
+    ssl_certificate /etc/letsencrypt/live/motiv8me.io/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/motiv8me.io/privkey.pem;
 
     # SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
 
-    # Frontend (React app)
+    root /app/motiv8-fe/dist;
+    index index.html;
+
+    # Backend API endpoints - must come BEFORE the frontend catch-all
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+    }
+
+    # Backend auth endpoints - exact matches only
+    location = /auth/login {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+    }
+
+    location = /auth/callback {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+    }
+
+    location = /auth/me {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+    }
+
+    location = /auth/logout {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+    }
+
+    # Static assets - serve directly without fallback to prevent MIME type issues
+    location /assets/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Frontend static files and SPA fallback
     location / {
-        root /app/motiv8-fe/dist;
         try_files $uri $uri/ /index.html;
-    }
-
-    # Backend API
-    location /api {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Auth endpoints
-    location /auth {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 EOF
@@ -164,10 +218,11 @@ echo "================================================"
 echo "Deployment Complete!"
 echo "================================================"
 echo ""
-echo "Next steps:"
+echo "If SSL certificates don't exist yet:"
 echo "1. Wait for DNS to propagate (5-60 minutes)"
 echo "2. Verify DNS with: dig $DOMAIN"
-echo "3. Once DNS resolves, obtain SSL certificate:"
+echo "3. Temporarily comment out SSL certificate lines in nginx config"
+echo "4. Obtain SSL certificate:"
 echo ""
 echo "   sudo certbot certonly --webroot \\"
 echo "     --webroot-path=/var/www/letsencrypt \\"
@@ -177,11 +232,8 @@ echo "     --no-eff-email \\"
 echo "     -d $DOMAIN \\"
 echo "     -d www.$DOMAIN"
 echo ""
-echo "4. Update nginx to use SSL certificate:"
-echo "   sudo certbot install --cert-name $DOMAIN --nginx"
-echo ""
-echo "5. Reload nginx:"
-echo "   sudo systemctl reload nginx"
+echo "5. Uncomment SSL certificate lines in /etc/nginx/conf.d/motiv8.conf"
+echo "6. Reload nginx: sudo systemctl reload nginx"
 echo ""
 echo "Check service status:"
 echo "  sudo systemctl status motiv8-backend"

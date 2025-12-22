@@ -377,7 +377,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
 
         # Redirect to frontend with token
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-        return RedirectResponse(url=f"{frontend_url}/auth/callback?token={access_token}")
+        return RedirectResponse(url=f"{frontend_url}/?token={access_token}")
 
     except Exception as e:
         logger.error(f"OAuth callback error: {e}", exc_info=True)
