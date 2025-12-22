@@ -66,7 +66,32 @@ TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
 
 ## Deployment Commands
 
-### Deploy Backend Changes
+### Quick Deployment Scripts
+
+**Deploy Code Changes (Recommended)**
+```bash
+# Deploy both backend and frontend (most common)
+./deploy-code.sh
+
+# Deploy only backend
+./deploy-code.sh --backend-only
+
+# Deploy only frontend
+./deploy-code.sh --frontend-only
+
+# Deploy everything including batch script
+./deploy-code.sh --all
+```
+
+**Update Infrastructure (Instance types, security groups, etc.)**
+```bash
+cd infrastructure
+./update-infrastructure.sh
+```
+
+### Manual Deployment Commands (for reference)
+
+**Deploy Backend Changes**
 ```bash
 # Get instance ID
 INSTANCE_ID=$(aws cloudformation describe-stacks \
@@ -84,7 +109,7 @@ aws ssm send-command \
   ]'
 ```
 
-### Check Logs
+**Check Logs**
 ```bash
 aws ssm send-command \
   --instance-ids $INSTANCE_ID \
