@@ -119,12 +119,6 @@ function ImageUpload() {
     }
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  };
-
   const handleGenerate = async () => {
     // Use user's existing selfie (embedding is created by batch job)
     const embeddingFilename = user?.selfie_embedding_filename;
