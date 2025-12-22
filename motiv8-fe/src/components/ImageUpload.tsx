@@ -33,17 +33,20 @@ function ImageUpload() {
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [currentSelfieUrl, setCurrentSelfieUrl] = useState<string | null>(null);
   const [canGenerate, setCanGenerate] = useState(false);
+  const [isProduction, setIsProduction] = useState(true);
 
-  // Check if on-demand generation is enabled
+  // Check if on-demand generation is enabled and get environment
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         const response = await axios.get(`${API_BASE_URL}/api/config`);
         setCanGenerate(response.data.features.onDemandGeneration);
+        setIsProduction(response.data.environment === 'production');
       } catch (error) {
         console.error('Failed to fetch config:', error);
-        // Default to false in case of error
+        // Default to production mode in case of error
         setCanGenerate(false);
+        setIsProduction(true);
       }
     };
     fetchConfig();
@@ -256,10 +259,14 @@ function ImageUpload() {
       {uploadResult && (
         <div className="message success">
           <h3>Selfie Uploaded Successfully!</h3>
-          <p>{uploadResult.message}</p>
-          <p><strong>Original filename:</strong> {uploadResult.original_filename}</p>
-          <p><strong>File size:</strong> {(uploadResult.size_bytes / 1024).toFixed(2)} KB</p>
-          <p className="info-text">✓ Face extraction will occur during the next batch processing run.</p>
+          {!isProduction && (
+            <>
+              <p>{uploadResult.message}</p>
+              <p><strong>Original filename:</strong> {uploadResult.original_filename}</p>
+              <p><strong>File size:</strong> {(uploadResult.size_bytes / 1024).toFixed(2)} KB</p>
+              <p className="info-text">✓ Face extraction will occur during the next batch processing run.</p>
+            </>
+          )}
 
           {canGenerate && user?.email === 'jacksoncook73@gmail.com' && (
             <button
