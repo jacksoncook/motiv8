@@ -26,7 +26,20 @@
       "Bash(aws cloudformation wait:*)",
       "Bash(aws cloudformation:*)",
       "Bash(main-stack-outputs.json)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(aws iam get-instance-profile:*)",
+      "Bash(aws iam list-attached-role-policies:*)",
+      "Bash(aws iam attach-role-policy:*)",
+      "Bash(aws ec2 reboot-instances:*)",
+      "Bash(aws ssm get-command-invocation:*)",
+      "Bash(aws ssm send-command:*)",
+      "Bash(aws ssm wait:*)",
+      "Bash(/tmp/deploy-output.txt)",
+      "Bash(/tmp/deploy-output2.txt)",
+      "Bash(scp:*)"
     ],
     "deny": [],
     "ask": []

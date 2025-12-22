@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = window.location.origin;
 
 interface User {
   id: string;
@@ -28,8 +28,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from token on mount
+  // Load user from token on mount, check URL first for OAuth callback
   useEffect(() => {
+    // Check if there's a token in the URL (OAuth callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+
+    if (tokenFromUrl) {
+      // Save token and remove from URL
+      localStorage.setItem('auth_token', tokenFromUrl);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      fetchUser(tokenFromUrl);
+      return;
+    }
+
+    // Otherwise check localStorage
     const token = localStorage.getItem('auth_token');
     if (token) {
       fetchUser(token);
