@@ -20,7 +20,7 @@ sudo yum install -y git python3 python3-pip nodejs npm nginx certbot python3-cer
 
 # Install Python dependencies globally for system Python
 echo "Installing Python packages..."
-sudo pip3 install --upgrade pip
+sudo pip3 install --upgrade pip || echo "pip upgrade skipped (already managed by system)"
 sudo pip3 install fastapi uvicorn sqlalchemy psycopg2-binary boto3 python-dotenv authlib httpx python-jose[cryptography]
 
 # Clone repository
