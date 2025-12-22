@@ -42,7 +42,9 @@
       "Bash(scp:*)",
       "Bash(aws ec2 describe-instances:*)",
       "Bash(aws ec2 stop-instances:*)",
-      "Bash(/tmp/ec2-params.json)"
+      "Bash(/tmp/ec2-params.json)",
+      "Bash(./run-batch-job.sh:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []
