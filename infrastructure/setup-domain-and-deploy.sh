@@ -103,9 +103,39 @@ aws s3 cp ../deploy-to-ec2.sh s3://$TEMP_BUCKET/deploy-to-ec2.sh
 
 echo "✓ Deployment script uploaded to S3"
 
-# Step 5: Run deployment via SSM
+# Step 5: Wait for instance to be ready for SSM
 echo ""
-echo "Step 5: Running deployment on EC2..."
+echo "Step 5: Waiting for instance to be ready for Systems Manager..."
+echo "(This may take a few minutes for the instance to boot and register)"
+
+MAX_WAIT=300  # 5 minutes
+WAIT_COUNT=0
+while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+    INSTANCE_STATUS=$(aws ssm describe-instance-information \
+      --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+      --query 'InstanceInformationList[0].PingStatus' \
+      --output text 2>/dev/null)
+
+    if [ "$INSTANCE_STATUS" = "Online" ]; then
+        echo "✓ Instance is ready for Systems Manager!"
+        break
+    fi
+
+    echo "  Waiting for instance to be online... ($WAIT_COUNT seconds)"
+    sleep 10
+    WAIT_COUNT=$((WAIT_COUNT + 10))
+done
+
+if [ "$INSTANCE_STATUS" != "Online" ]; then
+    echo "⚠ Instance not ready for SSM yet. You may need to wait longer."
+    echo "  Try running the deployment script manually later:"
+    echo "  aws ssm start-session --target $INSTANCE_ID"
+    exit 1
+fi
+
+# Step 6: Run deployment via SSM
+echo ""
+echo "Step 6: Running deployment on EC2..."
 echo "(This will take several minutes - installing packages, building frontend, etc.)"
 
 SSM_COMMAND_ID=$(aws ssm send-command \
@@ -139,9 +169,9 @@ aws ssm get-command-invocation \
 
 echo "================================================"
 
-# Step 6: Wait for DNS propagation
+# Step 7: Wait for DNS propagation
 echo ""
-echo "Step 6: Checking DNS propagation..."
+echo "Step 7: Checking DNS propagation..."
 echo "Waiting for DNS to propagate (this can take 5-60 minutes)..."
 echo "Checking every 30 seconds..."
 
@@ -163,9 +193,9 @@ if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
     echo "  You can continue manually once DNS resolves"
 fi
 
-# Step 7: Setup SSL
+# Step 8: Setup SSL
 echo ""
-echo "Step 7: Setting up SSL certificate..."
+echo "Step 8: Setting up SSL certificate..."
 echo "Running certbot..."
 
 SSL_COMMAND_ID=$(aws ssm send-command \
