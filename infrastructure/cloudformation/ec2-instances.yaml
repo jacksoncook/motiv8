@@ -1,0 +1,305 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Motiv8 - EC2 Instances for Web App and Batch Processing'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+
+  WebAppInstanceType:
+    Type: String
+    Default: t3.small
+
+  BatchInstanceType:
+    Type: String
+    Default: t3.xlarge
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+
+  VPCId:
+    Type: String
+
+  PublicSubnet1:
+    Type: String
+
+  WebAppSecurityGroup:
+    Type: String
+
+  BatchSecurityGroup:
+    Type: String
+
+  InstanceProfile:
+    Type: String
+
+  AppSecretsArn:
+    Type: String
+
+  UploadsBucket:
+    Type: String
+
+  BatchControlRoleArn:
+    Type: String
+
+Mappings:
+  # Amazon Linux 2023 AMIs (update these for your region)
+  RegionMap:
+    us-east-1:
+      AMI: ami-0c101f26f147fa7fd
+    us-west-2:
+      AMI: ami-008fe2fc65df48dac
+
+Resources:
+  # ==========================================
+  # Web App EC2 Instance (Always Running)
+  # ==========================================
+  WebAppInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref WebAppInstanceType
+      KeyName: !Ref KeyPairName
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroupIds:
+        - !Ref WebAppSecurityGroup
+      SubnetId: !Ref PublicSubnet1
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+
+          # Update system
+          yum update -y
+          yum install -y docker git python3-pip
+
+          # Start Docker
+          systemctl start docker
+          systemctl enable docker
+          usermod -aG docker ec2-user
+
+          # Install Docker Compose
+          curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+
+          # Install AWS CLI
+          pip3 install awscli --upgrade
+
+          # Create app directory
+          mkdir -p /app
+          cd /app
+
+          # Get secrets from Secrets Manager and convert to .env format
+          aws secretsmanager get-secret-value \
+            --secret-id ${AppSecretsArn} \
+            --region ${AWS::Region} \
+            --query SecretString \
+            --output text | python3 -c "import sys, json; secrets = json.load(sys.stdin); [print(f'{k}={v}') for k, v in secrets.items()]" > /app/.env
+
+          # Create systemd service for the app
+          cat > /etc/systemd/system/motiv8-webapp.service << 'SVCEOF'
+          [Unit]
+          Description=Motiv8 Web Application
+          After=docker.service
+          Requires=docker.service
+
+          [Service]
+          Type=simple
+          Restart=always
+          WorkingDirectory=/app
+          ExecStart=/usr/local/bin/docker-compose up
+          ExecStop=/usr/local/bin/docker-compose down
+
+          [Install]
+          WantedBy=multi-user.target
+          SVCEOF
+
+          # Signal CloudFormation that we're done
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource WebAppInstance --region ${AWS::Region}
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-webapp
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+
+  # ==========================================
+  # Batch Processing EC2 Instance (Scheduled)
+  # ==========================================
+  BatchInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref BatchInstanceType
+      KeyName: !Ref KeyPairName
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroupIds:
+        - !Ref BatchSecurityGroup
+      SubnetId: !Ref PublicSubnet1
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 50
+            VolumeType: gp3
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+
+          # Update system
+          yum update -y
+          yum install -y docker git python3-pip
+
+          # Start Docker
+          systemctl start docker
+          systemctl enable docker
+          usermod -aG docker ec2-user
+
+          # Install AWS CLI
+          pip3 install awscli --upgrade
+
+          # Create app directory
+          mkdir -p /app/batch
+          cd /app/batch
+
+          # Get secrets from Secrets Manager and convert to .env format
+          aws secretsmanager get-secret-value \
+            --secret-id ${AppSecretsArn} \
+            --region ${AWS::Region} \
+            --query SecretString \
+            --output text | python3 -c "import sys, json; secrets = json.load(sys.stdin); [print(f'{k}={v}') for k, v in secrets.items()]" > /app/batch/.env
+
+          # Create batch run script
+          cat > /app/batch/run-batch.sh << 'RUNEOF'
+          #!/bin/bash
+          set -e
+
+          echo "Starting batch job at $(date)"
+
+          # Pull latest code/image from S3 or ECR
+          # Run docker compose for batch job
+          cd /app/batch
+          docker-compose -f docker-compose.batch.yaml up
+
+          echo "Batch job completed at $(date)"
+
+          # Auto-shutdown after job completes
+          echo "Shutting down instance in 5 minutes..."
+          sleep 300
+          sudo shutdown -h now
+          RUNEOF
+
+          chmod +x /app/batch/run-batch.sh
+
+          # Create systemd service that runs on boot
+          cat > /etc/systemd/system/motiv8-batch.service << 'SVCEOF'
+          [Unit]
+          Description=Motiv8 Batch Job
+          After=docker.service
+          Requires=docker.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/app/batch/run-batch.sh
+
+          [Install]
+          WantedBy=multi-user.target
+          SVCEOF
+
+          systemctl enable motiv8-batch.service
+
+          # Signal CloudFormation
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BatchInstance --region ${AWS::Region}
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-batch
+        - Key: AutoShutdown
+          Value: 'true'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+
+  # ==========================================
+  # Lambda Function for Starting Batch Instance
+  # ==========================================
+  StartBatchInstanceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-start-batch-instance
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !Ref BatchControlRoleArn
+      Timeout: 60
+      Environment:
+        Variables:
+          BATCH_INSTANCE_ID: !Ref BatchInstance
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+
+          ec2 = boto3.client('ec2')
+
+          def lambda_handler(event, context):
+              instance_id = os.environ['BATCH_INSTANCE_ID']
+
+              print(f'Starting batch instance: {instance_id}')
+              response = ec2.start_instances(InstanceIds=[instance_id])
+
+              return {
+                  'statusCode': 200,
+                  'body': f'Started instance {instance_id}'
+              }
+
+  # ==========================================
+  # EventBridge Rule for Daily Batch
+  # ==========================================
+  DailyBatchRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${EnvironmentName}-daily-batch-trigger
+      Description: Trigger daily batch job at 6 AM UTC
+      ScheduleExpression: 'cron(0 6 * * ? *)'  # 6 AM UTC daily
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt StartBatchInstanceFunction.Arn
+          Id: StartBatchInstance
+
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref StartBatchInstanceFunction
+      Action: 'lambda:InvokeFunction'
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyBatchRule.Arn
+
+Outputs:
+  WebAppInstanceId:
+    Description: Web App Instance ID
+    Value: !Ref WebAppInstance
+    Export:
+      Name: !Sub ${EnvironmentName}-WebApp-Instance-ID
+
+  WebAppPublicDNS:
+    Description: Web App Public DNS
+    Value: !GetAtt WebAppInstance.PublicDnsName
+    Export:
+      Name: !Sub ${EnvironmentName}-WebApp-DNS
+
+  WebAppPublicIP:
+    Description: Web App Public IP
+    Value: !GetAtt WebAppInstance.PublicIp
+    Export:
+      Name: !Sub ${EnvironmentName}-WebApp-IP
+
+  BatchInstanceId:
+    Description: Batch Instance ID
+    Value: !Ref BatchInstance
+    Export:
+      Name: !Sub ${EnvironmentName}-Batch-Instance-ID

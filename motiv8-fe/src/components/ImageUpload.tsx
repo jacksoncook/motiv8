@@ -36,6 +36,22 @@ function ImageUpload() {
   const [generateResult, setGenerateResult] = useState<GenerateResponse | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [currentSelfieUrl, setCurrentSelfieUrl] = useState<string | null>(null);
+  const [canGenerate, setCanGenerate] = useState(false);
+
+  // Check if on-demand generation is enabled
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/config`);
+        setCanGenerate(response.data.features.onDemandGeneration);
+      } catch (error) {
+        console.error('Failed to fetch config:', error);
+        // Default to false in case of error
+        setCanGenerate(false);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   // Load current selfie if user has one
   useEffect(() => {
@@ -197,7 +213,7 @@ function ImageUpload() {
             </button>
           </div>
 
-          {user?.email === 'jacksoncook73@gmail.com' && (
+          {canGenerate && user?.email === 'jacksoncook73@gmail.com' && (
             <button
               onClick={handleGenerate}
               disabled={generating}
@@ -259,7 +275,7 @@ function ImageUpload() {
           <p><strong>Type:</strong> {uploadResult.content_type}</p>
           <p><strong>Size:</strong> {formatFileSize(uploadResult.size_bytes)}</p>
 
-          {user?.email === 'jacksoncook73@gmail.com' && (
+          {canGenerate && user?.email === 'jacksoncook73@gmail.com' && (
             <button
               onClick={handleGenerate}
               disabled={generating}

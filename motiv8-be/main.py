@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, Response
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -18,6 +18,7 @@ from database import get_db, init_db
 from models import User
 from migrate import migrate_database
 from email_utils import send_motivation_email
+from storage import uploads_storage, embeddings_storage, generated_storage, USE_S3
 from auth import (
     create_access_token,
     get_current_user,
@@ -69,7 +70,8 @@ async def startup_event():
     init_db()
     logger.info("Database initialized")
 
-# Create uploads, embeddings, and generated directories
+# Create local directories for development or temporary storage
+# In production with S3, these will be used for temporary file processing
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
@@ -79,11 +81,29 @@ EMBEDDINGS_DIR.mkdir(exist_ok=True)
 GENERATED_DIR = Path("generated")
 GENERATED_DIR.mkdir(exist_ok=True)
 
+# Log storage configuration
+if USE_S3:
+    logger.info("Using S3 for persistent storage, local directories for temporary processing")
+else:
+    logger.info("Using local filesystem for storage")
+
 
 @app.get("/")
 async def root():
     """Health check endpoint"""
     return {"status": "ok", "service": "motiv8-api"}
+
+
+@app.get("/api/config")
+async def get_config():
+    """Get public configuration (environment, features, etc.)"""
+    environment = os.getenv("ENVIRONMENT", "development")
+    return {
+        "environment": environment,
+        "features": {
+            "onDemandGeneration": environment == "development"
+        }
+    }
 
 
 @app.get("/api/hello")
@@ -108,47 +128,53 @@ async def upload_image(
         is_update = False
         if current_user.selfie_filename:
             is_update = True
-            old_image_path = UPLOAD_DIR / current_user.selfie_filename
-            old_embedding_path = EMBEDDINGS_DIR / current_user.selfie_embedding_filename
-
-            # Delete old files if they exist
-            if old_image_path.exists():
-                os.remove(old_image_path)
-                logger.info(f"Deleted old selfie: {old_image_path}")
-            if old_embedding_path.exists():
-                os.remove(old_embedding_path)
-                logger.info(f"Deleted old embedding: {old_embedding_path}")
+            # Delete old files from storage (S3 or local)
+            uploads_storage.delete(current_user.selfie_filename)
+            embeddings_storage.delete(current_user.selfie_embedding_filename)
 
         # Generate unique filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_extension = os.path.splitext(file.filename)[1]
         unique_filename = f"{timestamp}_{file.filename}"
-        file_path = UPLOAD_DIR / unique_filename
 
-        # Save image file
-        with open(file_path, "wb") as buffer:
+        # Save to temporary local file for processing
+        temp_file_path = UPLOAD_DIR / unique_filename
+        with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        logger.info(f"Image saved: {file_path}")
+        logger.info(f"Image saved temporarily: {temp_file_path}")
 
-        # Extract face embedding
+        # Extract face embedding from local temp file
         extractor = get_face_extractor()
-        result = extractor.extract_embedding(str(file_path))
+        result = extractor.extract_embedding(str(temp_file_path))
 
         if not result["success"]:
-            # Clean up uploaded image if face extraction failed
-            os.remove(file_path)
+            # Clean up temp file if face extraction failed
+            os.remove(temp_file_path)
             raise HTTPException(
                 status_code=400,
                 detail=f"Face extraction failed: {result.get('error', 'Unknown error')}"
             )
 
-        # Save embedding
+        # Save embedding to temporary local file
         embedding_filename = f"{timestamp}_{os.path.splitext(file.filename)[0]}.npy"
-        embedding_path = EMBEDDINGS_DIR / embedding_filename
-        extractor.save_embedding(result["embedding"], str(embedding_path))
+        temp_embedding_path = EMBEDDINGS_DIR / embedding_filename
+        extractor.save_embedding(result["embedding"], str(temp_embedding_path))
 
-        logger.info(f"Embedding saved: {embedding_path}")
+        # Get file size before uploading
+        file_size = os.path.getsize(temp_file_path)
+
+        # Upload both files to storage (S3 or local)
+        uploads_storage.save_from_file(unique_filename, str(temp_file_path))
+        embeddings_storage.save_from_file(embedding_filename, str(temp_embedding_path))
+
+        logger.info(f"Files uploaded to storage: {unique_filename}, {embedding_filename}")
+
+        # Clean up temp files if using S3
+        if USE_S3:
+            os.remove(temp_file_path)
+            os.remove(temp_embedding_path)
+            logger.info("Cleaned up temporary files")
 
         # Update user's selfie in database
         current_user.selfie_filename = unique_filename
@@ -166,7 +192,7 @@ async def upload_image(
                 "embedding_filename": embedding_filename,
                 "original_filename": file.filename,
                 "content_type": file.content_type,
-                "size_bytes": os.path.getsize(file_path),
+                "size_bytes": file_size,
                 "num_faces": result["num_faces"],
                 "bbox": result["bbox"],
                 "embedding_shape": list(result["embedding_shape"]),
@@ -198,11 +224,18 @@ async def generate_image(
     request: GenerateRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Generate an image using a face embedding"""
+    """Generate an image using a face embedding (development only)"""
+    # Only allow in development environment
+    environment = os.getenv("ENVIRONMENT", "development")
+    if environment != "development":
+        raise HTTPException(
+            status_code=403,
+            detail="On-demand image generation is disabled in production. Images are generated daily via batch job."
+        )
+
     try:
-        # Check if embedding file exists
-        embedding_path = EMBEDDINGS_DIR / request.embedding_filename
-        if not embedding_path.exists():
+        # Check if embedding file exists in storage
+        if not embeddings_storage.exists(request.embedding_filename):
             raise HTTPException(
                 status_code=404,
                 detail=f"Embedding file not found: {request.embedding_filename}"
@@ -210,19 +243,24 @@ async def generate_image(
 
         logger.info(f"Generating image using embedding: {request.embedding_filename}")
 
-        # Get the original image path if provided
-        image_path = None
-        if request.image_filename:
-            image_path = UPLOAD_DIR / request.image_filename
-            if not image_path.exists():
-                logger.warning(f"Image file not found: {request.image_filename}")
-                image_path = None
+        # Download embedding to local temp file for processing
+        temp_embedding_path = EMBEDDINGS_DIR / request.embedding_filename
+        embeddings_storage.download_to_local(request.embedding_filename, str(temp_embedding_path))
 
-        # Generate image
+        # Get the original image if provided and download to temp location
+        temp_image_path = None
+        if request.image_filename:
+            if uploads_storage.exists(request.image_filename):
+                temp_image_path = UPLOAD_DIR / request.image_filename
+                uploads_storage.download_to_local(request.image_filename, str(temp_image_path))
+            else:
+                logger.warning(f"Image file not found: {request.image_filename}")
+
+        # Generate image using local temp files
         generator = get_image_generator()
         result = generator.generate_image(
-            embedding_path=str(embedding_path),
-            image_path=str(image_path) if image_path else None,
+            embedding_path=str(temp_embedding_path),
+            image_path=str(temp_image_path) if temp_image_path else None,
             prompt=request.prompt,
             negative_prompt=request.negative_prompt,
             num_inference_steps=request.num_inference_steps,
@@ -237,18 +275,31 @@ async def generate_image(
                 detail=f"Image generation failed: {result.get('error', 'Unknown error')}"
             )
 
-        # Save generated image
+        # Save generated image to temp location
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_name = os.path.splitext(request.embedding_filename)[0]
         generated_filename = f"{timestamp}_{base_name}_generated.png"
-        generated_path = GENERATED_DIR / generated_filename
+        temp_generated_path = GENERATED_DIR / generated_filename
 
-        generator.save_image(result["image"], str(generated_path))
+        generator.save_image(result["image"], str(temp_generated_path))
 
-        logger.info(f"Image generated and saved: {generated_path}")
+        # Upload generated image to storage
+        generated_storage.save_from_file(generated_filename, str(temp_generated_path))
 
-        # Send motivation email to user
-        email_sent = send_motivation_email(current_user.email, str(generated_path))
+        logger.info(f"Image generated and uploaded to storage: {generated_filename}")
+
+        # Send motivation email to user with local temp file
+        email_sent = send_motivation_email(current_user.email, str(temp_generated_path))
+
+        # Clean up temp files if using S3
+        if USE_S3:
+            if temp_embedding_path.exists():
+                os.remove(temp_embedding_path)
+            if temp_image_path and temp_image_path.exists():
+                os.remove(temp_image_path)
+            if temp_generated_path.exists():
+                os.remove(temp_generated_path)
+            logger.info("Cleaned up temporary files")
         if email_sent:
             logger.info(f"Motivation email sent to {current_user.email}")
         else:
@@ -275,10 +326,18 @@ async def generate_image(
 @app.get("/api/generated/{filename}")
 async def get_generated_image(filename: str):
     """Serve a generated image"""
-    file_path = GENERATED_DIR / filename
-    if not file_path.exists():
+    # Check if file exists in storage
+    if not generated_storage.exists(filename):
         raise HTTPException(status_code=404, detail="Image not found")
-    return FileResponse(file_path)
+
+    # Get file from storage (S3 or local)
+    try:
+        file_data = generated_storage.get(filename)
+        # Generated images are always PNG
+        return Response(content=file_data, media_type='image/png')
+    except Exception as e:
+        logger.error(f"Error serving generated image: {e}")
+        raise HTTPException(status_code=500, detail="Error serving image")
 
 
 # ============================================================================
@@ -362,10 +421,27 @@ async def get_selfie_image(
     if current_user.selfie_filename != filename:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    file_path = UPLOAD_DIR / filename
-    if not file_path.exists():
+    # Check if file exists in storage
+    if not uploads_storage.exists(filename):
         raise HTTPException(status_code=404, detail="Selfie not found")
-    return FileResponse(file_path)
+
+    # Get file from storage (S3 or local)
+    try:
+        file_data = uploads_storage.get(filename)
+        # Determine content type from filename extension
+        ext = filename.split('.')[-1].lower()
+        content_type = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'webp': 'image/webp'
+        }.get(ext, 'application/octet-stream')
+
+        return Response(content=file_data, media_type=content_type)
+    except Exception as e:
+        logger.error(f"Error serving selfie: {e}")
+        raise HTTPException(status_code=500, detail="Error serving selfie")
 
 
 @app.post("/auth/logout")

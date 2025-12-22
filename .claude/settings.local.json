@@ -19,7 +19,14 @@
       "Bash(git rm:*)",
       "Bash(lsof:*)",
       "Bash(pkill:*)",
-      "Bash(xargs kill -9)"
+      "Bash(xargs kill -9)",
+      "Bash(chmod:*)",
+      "Bash(aws rds describe-db-engine-versions:*)",
+      "Bash(aws cloudformation delete-stack:*)",
+      "Bash(aws cloudformation wait:*)",
+      "Bash(aws cloudformation:*)",
+      "Bash(main-stack-outputs.json)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

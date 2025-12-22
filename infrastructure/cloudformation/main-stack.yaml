@@ -1,0 +1,499 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Motiv8 - Main Infrastructure Stack'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    Description: Environment name (production, staging, etc.)
+
+  WebAppInstanceType:
+    Type: String
+    Default: t3.small
+    Description: EC2 instance type for web application
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+
+  BatchInstanceType:
+    Type: String
+    Default: t3.xlarge
+    Description: EC2 instance type for batch processing
+    AllowedValues:
+      - t3.large
+      - t3.xlarge
+      - t3.2xlarge
+      - c6i.xlarge
+      - c6i.2xlarge
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair for SSH access
+
+  DBMasterUsername:
+    Type: String
+    Default: motiv8admin
+    Description: Database master username
+
+  DBMasterPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Database master password (minimum 8 characters)
+
+  DomainName:
+    Type: String
+    Description: Domain name for the application (e.g., motiv8.ai)
+    Default: ''
+
+  GoogleClientId:
+    Type: String
+    Description: Google OAuth Client ID
+    NoEcho: true
+
+  GoogleClientSecret:
+    Type: String
+    Description: Google OAuth Client Secret
+    NoEcho: true
+
+  SMTPUser:
+    Type: String
+    Description: SMTP username for sending emails
+
+  SMTPPassword:
+    Type: String
+    Description: SMTP password
+    NoEcho: true
+
+  FromEmail:
+    Type: String
+    Description: From email address for notifications
+
+Resources:
+  # ==========================================
+  # VPC and Networking
+  # ==========================================
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-igw
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-subnet-1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-subnet-2
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-private-subnet-1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.12.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-private-subnet-2
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public-rt
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # ==========================================
+  # Security Groups
+  # ==========================================
+  WebAppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for web application EC2
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0  # Restrict this to your IP in production
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-webapp-sg
+
+  BatchSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for batch processing EC2
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0  # Restrict this to your IP in production
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-batch-sg
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS database
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref WebAppSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref BatchSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-db-sg
+
+  # ==========================================
+  # S3 Buckets
+  # ==========================================
+  UploadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${EnvironmentName}-motiv8-uploads-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-uploads
+
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${EnvironmentName}-motiv8-frontend-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-frontend
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${FrontendBucket.Arn}/*'
+
+  # ==========================================
+  # RDS PostgreSQL
+  # ==========================================
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-db-subnet-group
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub ${EnvironmentName}-motiv8-db
+      Engine: postgres
+      EngineVersion: '15.15'
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      StorageType: gp3
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterPassword
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: 'sun:04:00-sun:05:00'
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-database
+
+  # ==========================================
+  # IAM Roles
+  # ==========================================
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-motiv8-ec2-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:DeleteObject'
+                  - 's3:ListBucket'
+                Resource:
+                  - !GetAtt UploadsBucket.Arn
+                  - !Sub '${UploadsBucket.Arn}/*'
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'secretsmanager:GetSecretValue'
+                Resource: !Ref AppSecrets
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${EnvironmentName}-motiv8-instance-profile
+      Roles:
+        - !Ref EC2Role
+
+  # ==========================================
+  # Secrets Manager
+  # ==========================================
+  AppSecrets:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${EnvironmentName}/motiv8/app-secrets
+      Description: Application secrets for Motiv8
+      SecretString: !Sub |
+        {
+          "DB_HOST": "${Database.Endpoint.Address}",
+          "DB_PORT": "${Database.Endpoint.Port}",
+          "DB_NAME": "motiv8",
+          "DB_USERNAME": "${DBMasterUsername}",
+          "DB_PASSWORD": "${DBMasterPassword}",
+          "JWT_SECRET_KEY": "${AWS::StackId}",
+          "GOOGLE_CLIENT_ID": "${GoogleClientId}",
+          "GOOGLE_CLIENT_SECRET": "${GoogleClientSecret}",
+          "GOOGLE_REDIRECT_URI": "https://${DomainName}/auth/callback",
+          "FRONTEND_URL": "https://${DomainName}",
+          "SMTP_HOST": "smtp.gmail.com",
+          "SMTP_PORT": "587",
+          "SMTP_USER": "${SMTPUser}",
+          "SMTP_PASSWORD": "${SMTPPassword}",
+          "FROM_EMAIL": "${FromEmail}",
+          "S3_BUCKET": "${UploadsBucket}",
+          "AWS_REGION": "${AWS::Region}",
+          "ENVIRONMENT": "${EnvironmentName}"
+        }
+
+  # ==========================================
+  # IAM Role for Lambda (EC2 control)
+  # ==========================================
+  BatchControlRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-batch-control-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: EC2Control
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ec2:StartInstances'
+                  - 'ec2:StopInstances'
+                  - 'ec2:DescribeInstances'
+                  - 'ec2:DescribeInstanceStatus'
+                Resource: '*'
+
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${EnvironmentName}-VPC-ID
+
+  WebAppSecurityGroupId:
+    Description: Web App Security Group ID
+    Value: !Ref WebAppSecurityGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-WebApp-SG-ID
+
+  BatchSecurityGroupId:
+    Description: Batch Security Group ID
+    Value: !Ref BatchSecurityGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-Batch-SG-ID
+
+  DatabaseEndpoint:
+    Description: RDS Database Endpoint
+    Value: !GetAtt Database.Endpoint.Address
+    Export:
+      Name: !Sub ${EnvironmentName}-DB-Endpoint
+
+  UploadsBucketName:
+    Description: S3 Bucket for uploads
+    Value: !Ref UploadsBucket
+    Export:
+      Name: !Sub ${EnvironmentName}-Uploads-Bucket
+
+  FrontendBucketName:
+    Description: S3 Bucket for frontend
+    Value: !Ref FrontendBucket
+    Export:
+      Name: !Sub ${EnvironmentName}-Frontend-Bucket
+
+  FrontendWebsiteURL:
+    Description: Frontend Website URL
+    Value: !GetAtt FrontendBucket.WebsiteURL
+    Export:
+      Name: !Sub ${EnvironmentName}-Frontend-URL
+
+  AppSecretsArn:
+    Description: Secrets Manager ARN
+    Value: !Ref AppSecrets
+    Export:
+      Name: !Sub ${EnvironmentName}-App-Secrets-ARN
+
+  BatchControlRoleArn:
+    Description: IAM Role ARN for Lambda function
+    Value: !GetAtt BatchControlRole.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-Batch-Control-Role-ARN
+
+  PublicSubnet1:
+    Description: Public Subnet 1 ID
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub ${EnvironmentName}-Public-Subnet-1
+
+  PublicSubnet2:
+    Description: Public Subnet 2 ID
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub ${EnvironmentName}-Public-Subnet-2
+
+  InstanceProfileArn:
+    Description: EC2 Instance Profile ARN
+    Value: !GetAtt EC2InstanceProfile.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-Instance-Profile-ARN

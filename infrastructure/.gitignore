@@ -1,0 +1,19 @@
+# AWS CloudFormation parameters (contain sensitive credentials)
+parameters.json
+ec2-parameters.json
+
+# SSH keys
+*.pem
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# AWS credentials
+credentials
+
+# Temporary files
+*.tmp
+*.swp
+*~
