@@ -17,6 +17,21 @@ After pushing changes to GitHub, deploy to production:
 ./deploy-code.sh --frontend-only
 ```
 
+### Run Batch Job Manually
+
+Manually trigger the batch image generation and email job:
+
+```bash
+# Run the batch job (with confirmation prompt)
+./run-batch-job.sh
+
+# See what would happen without actually running
+./run-batch-job.sh --dry-run
+
+# Run quietly without detailed output
+./run-batch-job.sh --quiet
+```
+
 ### Update Infrastructure
 
 To change instance types, security groups, or other AWS resources:
@@ -81,6 +96,38 @@ Updates the AWS CloudFormation stack for infrastructure changes.
 cd infrastructure
 ./update-infrastructure.sh
 ```
+
+### `run-batch-job.sh` - Manual Batch Job Trigger
+
+Manually runs the batch image generation and email job on-demand.
+
+**Use this when you want to:**
+- Test the batch job without waiting for the scheduled time
+- Process users immediately after they upload selfies
+- Debug issues with face extraction or image generation
+- Send motivational emails outside the normal schedule
+
+**What it does:**
+1. Finds users with workout days set for today
+2. Extracts face embeddings (if not already done)
+3. Generates motivational images for each user
+4. Sends email to each user with their generated image
+
+**Features:**
+- Shows confirmation prompt before running
+- Automatically sets up ML environment if needed (first run takes 5-10 minutes)
+- Streams output so you can watch progress
+- Shows summary of users processed and emails sent
+- Supports dry-run mode to preview what would happen
+
+**Usage:**
+```bash
+./run-batch-job.sh              # Run with confirmation
+./run-batch-job.sh --dry-run    # Preview without running
+./run-batch-job.sh --quiet      # Run without detailed output
+```
+
+**Note:** The first time you run this, it will create a `batch-venv` virtual environment with ML dependencies (PyTorch, InsightFace, etc.). This takes 5-10 minutes but only happens once.
 
 ## Architecture
 

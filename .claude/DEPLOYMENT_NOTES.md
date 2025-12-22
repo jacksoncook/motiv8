@@ -83,6 +83,15 @@ TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
 ./deploy-code.sh --all
 ```
 
+**Run Batch Job Manually**
+```bash
+# Manually trigger batch image generation and email sending
+./run-batch-job.sh
+
+# Preview what would happen without running
+./run-batch-job.sh --dry-run
+```
+
 **Update Infrastructure (Instance types, security groups, etc.)**
 ```bash
 cd infrastructure
@@ -126,12 +135,29 @@ aws ssm send-command \
 
 ### Active Scripts (used for day-to-day deployments)
 
-**`deploy-to-ec2.sh`** - Deploys application code to the EC2 instance
+**`deploy-code.sh`** - Deploys application code (Recommended)
+- Pulls latest code from GitHub
+- Installs dependencies
+- Builds frontend with npm
+- Restarts backend service
+- Supports --backend-only, --frontend-only flags
+- Runs via SSM commands
+
+**`run-batch-job.sh`** - Manually triggers batch processing
+- Finds users with today as workout day
+- Extracts face embeddings (if needed)
+- Generates motivational images
+- Sends emails with generated images
+- Creates separate ML environment (batch-venv) on first run
+- Useful for testing or immediate processing
+
+**`deploy-to-ec2.sh`** - Full EC2 setup script (Legacy)
+- Used for initial EC2 instance setup
 - Pulls latest code from GitHub
 - Builds frontend with npm
 - Sets up backend with Python virtualenv
 - Configures nginx and systemd services
-- Used via SSM commands (see "Deploy Backend Changes" above)
+- Now superseded by deploy-code.sh for regular deployments
 
 ### Archive Scripts (used only for initial setup or disaster recovery)
 
