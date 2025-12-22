@@ -39,7 +39,8 @@
       "Bash(aws ssm wait:*)",
       "Bash(/tmp/deploy-output.txt)",
       "Bash(/tmp/deploy-output2.txt)",
-      "Bash(scp:*)"
+      "Bash(scp:*)",
+      "Bash(aws ec2 describe-instances:*)"
     ],
     "deny": [],
     "ask": []

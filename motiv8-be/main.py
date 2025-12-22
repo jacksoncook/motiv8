@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, Response
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
+from typing import Optional
 import uvicorn
 import os
 import shutil
@@ -187,12 +188,12 @@ async def upload_image(
 class GenerateRequest(BaseModel):
     """Request body for image generation"""
     embedding_filename: str
-    image_filename: str | None = None  # Original uploaded image filename
+    image_filename: Optional[str] = None  # Original uploaded image filename
     prompt: str = "professional portrait photo of a person with extremely muscular bodybuilder physique, highly detailed, 8k, photorealistic"
     negative_prompt: str = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality"
     num_inference_steps: int = 30
     guidance_scale: float = 7.5
-    seed: int | None = None
+    seed: Optional[int] = None
     scale: float = 0.8  # IP-Adapter scale (0-1), controls how much face is preserved
 
 
