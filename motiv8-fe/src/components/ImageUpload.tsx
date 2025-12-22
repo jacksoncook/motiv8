@@ -8,14 +8,10 @@ const API_BASE_URL = window.location.origin;
 interface UploadResponse {
   message: string;
   filename: string;
-  embedding_filename: string;
   original_filename: string;
   content_type: string;
   size_bytes: number;
-  num_faces: number;
-  bbox: number[];
-  embedding_shape: number[];
-  embedding_dtype: string;
+  is_update: boolean;
 }
 
 interface GenerateResponse {
@@ -130,12 +126,12 @@ function ImageUpload() {
   };
 
   const handleGenerate = async () => {
-    // Use uploadResult if available (just uploaded), otherwise use user's existing selfie
-    const embeddingFilename = uploadResult?.embedding_filename || user?.selfie_embedding_filename;
-    const imageFilename = uploadResult?.filename || user?.selfie_filename;
+    // Use user's existing selfie (embedding is created by batch job)
+    const embeddingFilename = user?.selfie_embedding_filename;
+    const imageFilename = user?.selfie_filename;
 
     if (!embeddingFilename) {
-      setError('Please upload an image first');
+      setError('Please wait for face extraction to complete before generating images');
       return;
     }
 
@@ -265,15 +261,11 @@ function ImageUpload() {
 
       {uploadResult && (
         <div className="message success">
-          <h3>Face Embedding Extracted!</h3>
+          <h3>Selfie Uploaded Successfully!</h3>
+          <p>{uploadResult.message}</p>
           <p><strong>Original filename:</strong> {uploadResult.original_filename}</p>
-          <p><strong>Image saved as:</strong> {uploadResult.filename}</p>
-          <p><strong>Embedding saved as:</strong> {uploadResult.embedding_filename}</p>
-          <p><strong>Faces detected:</strong> {uploadResult.num_faces}</p>
-          <p><strong>Embedding shape:</strong> [{uploadResult.embedding_shape.join(', ')}]</p>
-          <p><strong>Face bounding box:</strong> [{uploadResult.bbox.map(n => n.toFixed(1)).join(', ')}]</p>
-          <p><strong>Type:</strong> {uploadResult.content_type}</p>
-          <p><strong>Size:</strong> {formatFileSize(uploadResult.size_bytes)}</p>
+          <p><strong>File size:</strong> {(uploadResult.size_bytes / 1024).toFixed(2)} KB</p>
+          <p className="info-text">✓ Face extraction will occur during the next batch processing run.</p>
 
           {canGenerate && user?.email === 'jacksoncook73@gmail.com' && (
             <button
