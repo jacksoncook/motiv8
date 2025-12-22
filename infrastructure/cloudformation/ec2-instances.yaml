@@ -264,8 +264,8 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       Name: !Sub ${EnvironmentName}-daily-batch-trigger
-      Description: Trigger daily batch job at 6 AM UTC
-      ScheduleExpression: 'cron(0 6 * * ? *)'  # 6 AM UTC daily
+      Description: Trigger daily batch job at 3 PM UTC (10 AM EST / 7 AM PST)
+      ScheduleExpression: 'cron(0 15 * * ? *)'  # 3 PM UTC daily (10 AM EST / 7 AM PST)
       State: ENABLED
       Targets:
         - Arn: !GetAtt StartBatchInstanceFunction.Arn

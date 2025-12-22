@@ -48,7 +48,7 @@ TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
 
 ### Batch Server (Scheduled Daily - t3.xlarge)
 - Uses full `requirements.txt` (includes ML libraries)
-- Runs `batch_generate.py` daily at 6 AM UTC
+- Runs `batch_generate.py` daily at 3 PM UTC (10 AM EST / 7 AM PST)
 - **Performs face extraction AND image generation**
 - Automatically shuts down after completion
 

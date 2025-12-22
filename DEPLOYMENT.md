@@ -138,7 +138,7 @@ Manually runs the batch image generation and email job on-demand.
 - Location: `/app/motiv8-be/` on EC2
 
 ### Batch Server (Scheduled Daily - t3.xlarge)
-- Runs `batch_generate.py` daily at 6 AM UTC
+- Runs `batch_generate.py` daily at 3 PM UTC (10 AM EST / 7 AM PST)
 - Uses full `requirements.txt` (includes ML libraries)
 - Performs face extraction AND image generation
 - Automatically shuts down after completion
