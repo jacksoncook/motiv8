@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import './WorkoutDays.css';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = window.location.origin;
 
 const DAYS_OF_WEEK = [
   { key: 'monday', label: 'Monday' },
