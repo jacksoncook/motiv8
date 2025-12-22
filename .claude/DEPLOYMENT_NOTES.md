@@ -96,3 +96,37 @@ aws ssm send-command \
 
 - Main infrastructure: `production-motiv8-main`
 - EC2 instances: `motiv8-ec2-instances`
+
+## Current Deployment Scripts
+
+### Active Scripts (used for day-to-day deployments)
+
+**`deploy-to-ec2.sh`** - Deploys application code to the EC2 instance
+- Pulls latest code from GitHub
+- Builds frontend with npm
+- Sets up backend with Python virtualenv
+- Configures nginx and systemd services
+- Used via SSM commands (see "Deploy Backend Changes" above)
+
+### Archive Scripts (used only for initial setup or disaster recovery)
+
+**`infrastructure/deploy.sh`** - Creates CloudFormation stacks from scratch
+- Note: EC2 stack name in script (`production-motiv8-ec2`) doesn't match actual deployed name (`motiv8-ec2-instances`)
+- Only needed when creating infrastructure from scratch
+
+**`infrastructure/setup-domain-and-deploy.sh`** - Full automated setup including DNS
+- Used for initial deployment only
+- Sets up Route53 DNS records and SSL certificates
+
+## Database Protection
+
+**CRITICAL:** The RDS database has been configured with:
+```yaml
+DeletionPolicy: Snapshot
+UpdateReplacePolicy: Snapshot
+```
+
+This means:
+- If you delete the CloudFormation stack, a final snapshot will be created
+- If you update the stack and it requires replacing the database, a snapshot will be created first
+- **You can safely update the CloudFormation template without losing data**

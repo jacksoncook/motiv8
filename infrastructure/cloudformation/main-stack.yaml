@@ -300,6 +300,8 @@ Resources:
 
   Database:
     Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
     Properties:
       DBInstanceIdentifier: !Sub ${EnvironmentName}-motiv8-db
       Engine: postgres
