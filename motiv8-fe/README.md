@@ -1,4 +1,4 @@
-# Motiv8 Frontend
+# motiv8me Frontend
 
 React + TypeScript frontend built with Vite.
 

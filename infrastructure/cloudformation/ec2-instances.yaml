@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Motiv8 - EC2 Instances for Web App and Batch Processing'
+Description: 'motiv8me - EC2 Instances for Web App and Batch Processing'
 
 Parameters:
   EnvironmentName:
@@ -104,7 +104,7 @@ Resources:
           # Create systemd service for the app
           cat > /etc/systemd/system/motiv8-webapp.service << 'SVCEOF'
           [Unit]
-          Description=Motiv8 Web Application
+          Description=motiv8me Web Application
           After=docker.service
           Requires=docker.service
 
@@ -200,7 +200,7 @@ Resources:
           # Create systemd service that runs on boot
           cat > /etc/systemd/system/motiv8-batch.service << 'SVCEOF'
           [Unit]
-          Description=Motiv8 Batch Job
+          Description=motiv8me Batch Job
           After=docker.service
           Requires=docker.service
 

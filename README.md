@@ -1,4 +1,4 @@
-# Motiv8
+# motiv8me
 
 A full-stack application with Python backend and future frontend.
 

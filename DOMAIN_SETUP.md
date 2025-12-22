@@ -1,6 +1,6 @@
-# Domain Setup Guide for Motiv8
+# Domain Setup Guide for motiv8me
 
-This guide explains how to configure a custom domain for your Motiv8 application deployment.
+This guide explains how to configure a custom domain for your motiv8me application deployment.
 
 ## Prerequisites
 
@@ -695,7 +695,7 @@ Use this checklist to ensure everything is configured:
 
 ## Summary
 
-After completing this guide, your Motiv8 application will be accessible at:
+After completing this guide, your motiv8me application will be accessible at:
 - **https://motiv8me.io** - Your main domain
 - **https://www.motiv8me.io** - www subdomain
 - **http://motiv8me.io** - Redirects to HTTPS

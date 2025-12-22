@@ -33,7 +33,7 @@ from auth import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Motiv8 API", version="1.0.0")
+app = FastAPI(title="motiv8me API", version="1.0.0")
 
 # Configure CORS
 app.add_middleware(

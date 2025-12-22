@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Motiv8 - Main Infrastructure Stack'
+Description: 'motiv8me - Main Infrastructure Stack'
 
 Parameters:
   EnvironmentName:
@@ -44,7 +44,7 @@ Parameters:
 
   DomainName:
     Type: String
-    Description: Domain name for the application (e.g., motiv8.ai)
+    Description: Domain name for the application (e.g., motiv8me.io)
     Default: ''
 
   GoogleClientId:
@@ -374,7 +374,7 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: !Sub ${EnvironmentName}/motiv8/app-secrets
-      Description: Application secrets for Motiv8
+      Description: Application secrets for motiv8me
       SecretString: !Sub |
         {
           "DB_HOST": "${Database.Endpoint.Address}",

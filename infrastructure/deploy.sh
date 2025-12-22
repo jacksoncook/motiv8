@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Motiv8 AWS Deployment Script
+# motiv8me AWS Deployment Script
 # This script helps deploy the CloudFormation stacks
 
 set -e
@@ -11,7 +11,7 @@ MAIN_STACK_NAME="${ENVIRONMENT}-motiv8-main"
 EC2_STACK_NAME="${ENVIRONMENT}-motiv8-ec2"
 
 echo "========================================"
-echo "Motiv8 AWS Deployment Script"
+echo "motiv8me AWS Deployment Script"
 echo "========================================"
 echo ""
 

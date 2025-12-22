@@ -2,7 +2,7 @@
 set -e
 
 echo "================================================"
-echo "Motiv8 EC2 Deployment Script"
+echo "motiv8me EC2 Deployment Script"
 echo "================================================"
 
 # Configuration
@@ -189,7 +189,7 @@ sudo systemctl restart nginx
 echo "Creating backend systemd service..."
 sudo tee /etc/systemd/system/motiv8-backend.service > /dev/null <<EOF
 [Unit]
-Description=Motiv8 Backend API
+Description=motiv8me Backend API
 After=network.target
 
 [Service]

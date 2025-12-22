@@ -59,7 +59,7 @@ def send_motivation_email(to_email: str, generated_image_path: str) -> bool:
             </div>
 
             <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ccc; color: #666;">
-              <p>Powered by <a href="https://motiv8.ai" style="color: #646cff; text-decoration: none;">motiv8.ai</a></p>
+              <p>Powered by <a href="https://motiv8me.io" style="color: #646cff; text-decoration: none;">motiv8me.io</a></p>
             </footer>
           </body>
         </html>

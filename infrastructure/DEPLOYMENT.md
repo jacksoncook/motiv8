@@ -1,6 +1,6 @@
-# Motiv8 AWS Deployment Guide
+# motiv8me AWS Deployment Guide
 
-This guide explains how to deploy Motiv8 to AWS using CloudFormation, with a cost-effective architecture that separates the web app from batch image generation.
+This guide explains how to deploy motiv8me to AWS using CloudFormation, with a cost-effective architecture that separates the web app from batch image generation.
 
 ## Architecture Overview
 
@@ -74,7 +74,7 @@ Create `infrastructure/parameters.json`:
   },
   {
     "ParameterKey": "DomainName",
-    "ParameterValue": "motiv8.ai"
+    "ParameterValue": "motiv8me.io"
   },
   {
     "ParameterKey": "GoogleClientId",
@@ -362,7 +362,7 @@ sudo journalctl -u motiv8-batch -f
 
 ```bash
 # Create hosted zone (if not exists)
-aws route53 create-hosted-zone --name motiv8.ai --caller-reference $(date +%s)
+aws route53 create-hosted-zone --name motiv8me.io --caller-reference $(date +%s)
 
 # Get name servers and update at your domain registrar
 
@@ -382,7 +382,7 @@ ssh -i ~/.ssh/motiv8-keypair.pem ec2-user@INSTANCE_IP
 sudo yum install -y certbot python3-certbot-nginx
 
 # Get certificate
-sudo certbot --nginx -d motiv8.ai -d www.motiv8.ai
+sudo certbot --nginx -d motiv8me.io -d www.motiv8me.io
 ```
 
 ## Updating the Application

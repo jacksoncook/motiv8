@@ -2,7 +2,7 @@
 set -e
 
 echo "================================================"
-echo "Motiv8 Complete Setup Script"
+echo "motiv8me Complete Setup Script"
 echo "================================================"
 
 STACK_NAME="motiv8-ec2-instances"

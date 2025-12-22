@@ -1,10 +1,10 @@
-# Motiv8 Infrastructure
+# motiv8me Infrastructure
 
-This directory contains AWS CloudFormation templates and deployment scripts for the Motiv8 application.
+This directory contains AWS CloudFormation templates and deployment scripts for the motiv8me application.
 
 ## Architecture
 
-Motiv8 uses a cost-optimized AWS architecture that separates the always-running web application from the scheduled batch image generation:
+motiv8me uses a cost-optimized AWS architecture that separates the always-running web application from the scheduled batch image generation:
 
 - **Web App EC2** (t3.small): Always running, handles user authentication, selfie uploads, and serves the React frontend (~$15/month)
 - **Batch EC2** (t3.xlarge): Runs once daily at 6 AM UTC, generates images and sends emails, then auto-shuts down (~$40/month for 1 hour/day)
