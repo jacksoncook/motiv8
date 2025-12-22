@@ -10,13 +10,24 @@ REPO_URL="https://github.com/jacksoncook/motiv8.git"
 APP_DIR="/app"
 DOMAIN="motiv8me.io"
 
+# Clean up disk space
+echo "Cleaning up disk space..."
+sudo yum clean all
+sudo rm -rf /tmp/*
+sudo journalctl --vacuum-time=1d
+
 # Update system
 echo "Updating system packages..."
 sudo yum update -y
 
 # Install required packages
 echo "Installing packages..."
-sudo yum install -y git python3 python3-pip nodejs npm nginx certbot python3-certbot-nginx
+sudo yum install -y git python3 python3-pip nginx certbot python3-certbot-nginx
+
+# Install Node.js 20.x (Vite requires 20.19+)
+echo "Installing Node.js 20.x..."
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+sudo yum install -y nodejs
 
 # Install Python dependencies globally for system Python
 echo "Installing Python packages..."
@@ -52,7 +63,8 @@ cd $APP_DIR/motiv8-be
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+# Use lightweight requirements for web server (no ML dependencies)
+pip install -r requirements-web.txt
 
 # Configure Nginx
 echo "Configuring Nginx..."
