@@ -73,36 +73,71 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Get web app instance ID (batch script is on the web server)
-echo "Step 1: Getting EC2 instance information..."
-echo "-------------------------------------------"
-WEBAPP_INSTANCE_ID=$(aws cloudformation describe-stacks \
+# Get batch instance ID
+echo "Step 1: Getting batch instance information..."
+echo "----------------------------------------------"
+BATCH_INSTANCE_ID=$(aws cloudformation describe-stacks \
     --stack-name "$EC2_STACK_NAME" \
     --region "$REGION" \
-    --query 'Stacks[0].Outputs[?OutputKey==`WebAppInstanceId`].OutputValue' \
+    --query 'Stacks[0].Outputs[?OutputKey==`BatchInstanceId`].OutputValue' \
     --output text)
 
-if [ -z "$WEBAPP_INSTANCE_ID" ]; then
-    print_error "Could not find Web App instance ID"
+if [ -z "$BATCH_INSTANCE_ID" ]; then
+    print_error "Could not find Batch instance ID"
     exit 1
 fi
 
-print_status "Web App Instance: $WEBAPP_INSTANCE_ID"
+print_status "Batch Instance: $BATCH_INSTANCE_ID"
+
+# Check if instance is running
+print_info "Checking instance state..."
+INSTANCE_STATE=$(aws ec2 describe-instances \
+    --instance-ids "$BATCH_INSTANCE_ID" \
+    --region "$REGION" \
+    --query 'Reservations[0].Instances[0].State.Name' \
+    --output text)
+
+if [ "$INSTANCE_STATE" = "stopped" ]; then
+    print_warning "Batch instance is stopped. Starting it now..."
+    aws ec2 start-instances --instance-ids "$BATCH_INSTANCE_ID" --region "$REGION" > /dev/null
+    print_info "Waiting for instance to start (this may take 1-2 minutes)..."
+    aws ec2 wait instance-running --instance-ids "$BATCH_INSTANCE_ID" --region "$REGION"
+    print_status "Instance started successfully"
+
+    # Wait a bit more for SSM agent to be ready
+    print_info "Waiting for Systems Manager agent to be ready..."
+    sleep 30
+elif [ "$INSTANCE_STATE" != "running" ]; then
+    print_error "Instance is in unexpected state: $INSTANCE_STATE"
+    exit 1
+else
+    print_status "Instance is already running"
+fi
 
 # Check if instance is online in SSM
-print_info "Checking if instance is ready..."
-INSTANCE_STATUS=$(aws ssm describe-instance-information \
-    --filters "Key=InstanceIds,Values=$WEBAPP_INSTANCE_ID" \
-    --region "$REGION" \
-    --query 'InstanceInformationList[0].PingStatus' \
-    --output text 2>/dev/null)
+print_info "Checking Systems Manager connectivity..."
+MAX_WAIT=60
+WAIT_COUNT=0
+while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+    INSTANCE_STATUS=$(aws ssm describe-instance-information \
+        --filters "Key=InstanceIds,Values=$BATCH_INSTANCE_ID" \
+        --region "$REGION" \
+        --query 'InstanceInformationList[0].PingStatus' \
+        --output text 2>/dev/null)
+
+    if [ "$INSTANCE_STATUS" = "Online" ]; then
+        print_status "Instance is online and ready"
+        break
+    fi
+
+    sleep 5
+    WAIT_COUNT=$((WAIT_COUNT + 5))
+done
 
 if [ "$INSTANCE_STATUS" != "Online" ]; then
-    print_error "Instance is not online in Systems Manager (Status: $INSTANCE_STATUS)"
+    print_error "Instance did not become ready in time (Status: $INSTANCE_STATUS)"
     exit 1
 fi
-
-print_status "Instance is online and ready"
 
 if [ "$DRY_RUN" = true ]; then
     echo ""
@@ -136,29 +171,20 @@ echo ""
 
 # Create the batch command
 BATCH_COMMAND_ID=$(aws ssm send-command \
-    --instance-ids "$WEBAPP_INSTANCE_ID" \
+    --instance-ids "$BATCH_INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --parameters 'commands=[
-        "cd /app/motiv8-be",
+        "cd /app/batch",
         "echo \"=== Batch Job Started at $(date) ===\"",
         "echo \"\"",
-        "# Check if full ML environment exists",
-        "if [ ! -d \"batch-venv\" ]; then",
-        "    echo \"Setting up batch processing environment (this may take 5-10 minutes)...\"",
-        "    python3 -m venv batch-venv",
-        "    source batch-venv/bin/activate",
-        "    pip install --upgrade pip",
-        "    pip install -r requirements.txt",
-        "    echo \"Batch environment setup complete\"",
-        "else",
-        "    echo \"Using existing batch environment\"",
-        "    source batch-venv/bin/activate",
-        "fi",
+        "# Run the batch job",
+        "/app/batch/run-batch.sh || echo \"Batch job failed with exit code $?\"",
         "echo \"\"",
-        "echo \"=== Running Batch Generate Script ===\"",
-        "python batch_generate.py",
+        "echo \"=== Batch Job Completed at $(date) ===\"",
         "echo \"\"",
-        "echo \"=== Batch Job Completed at $(date) ===\""
+        "echo \"Instance will shut down in 5 minutes...\"",
+        "sleep 300",
+        "sudo shutdown -h now"
     ]' \
     --timeout-seconds 3600 \
     --region "$REGION" \
@@ -177,7 +203,7 @@ if [ "$SHOW_OUTPUT" = true ]; then
     # Wait for command to complete
     aws ssm wait command-executed \
         --command-id "$BATCH_COMMAND_ID" \
-        --instance-id "$WEBAPP_INSTANCE_ID" \
+        --instance-id "$BATCH_INSTANCE_ID" \
         --region "$REGION"
 
     # Get the full output
@@ -186,7 +212,7 @@ if [ "$SHOW_OUTPUT" = true ]; then
     echo "================================================"
     aws ssm get-command-invocation \
         --command-id "$BATCH_COMMAND_ID" \
-        --instance-id "$WEBAPP_INSTANCE_ID" \
+        --instance-id "$BATCH_INSTANCE_ID" \
         --region "$REGION" \
         --query 'StandardOutputContent' \
         --output text
@@ -194,7 +220,7 @@ if [ "$SHOW_OUTPUT" = true ]; then
     # Check for errors
     ERROR_OUTPUT=$(aws ssm get-command-invocation \
         --command-id "$BATCH_COMMAND_ID" \
-        --instance-id "$WEBAPP_INSTANCE_ID" \
+        --instance-id "$BATCH_INSTANCE_ID" \
         --region "$REGION" \
         --query 'StandardErrorContent' \
         --output text)
@@ -210,13 +236,13 @@ if [ "$SHOW_OUTPUT" = true ]; then
 else
     print_info "Job running in background. Command ID: $BATCH_COMMAND_ID"
     print_info "Check status with:"
-    echo "  aws ssm get-command-invocation --command-id $BATCH_COMMAND_ID --instance-id $WEBAPP_INSTANCE_ID"
+    echo "  aws ssm get-command-invocation --command-id $BATCH_COMMAND_ID --instance-id $BATCH_INSTANCE_ID"
 fi
 
 # Get command status
 COMMAND_STATUS=$(aws ssm get-command-invocation \
     --command-id "$BATCH_COMMAND_ID" \
-    --instance-id "$WEBAPP_INSTANCE_ID" \
+    --instance-id "$BATCH_INSTANCE_ID" \
     --region "$REGION" \
     --query 'Status' \
     --output text)
@@ -225,13 +251,17 @@ echo ""
 echo "================================================"
 if [ "$COMMAND_STATUS" = "Success" ]; then
     print_status "Batch job completed successfully!"
+    print_info "Instance will automatically shut down in 5 minutes"
 else
     print_warning "Batch job completed with status: $COMMAND_STATUS"
+    print_info "Instance will automatically shut down in 5 minutes"
 fi
 echo "================================================"
 echo ""
 echo "To view full logs later:"
 echo "  aws ssm get-command-invocation \\"
 echo "    --command-id $BATCH_COMMAND_ID \\"
-echo "    --instance-id $WEBAPP_INSTANCE_ID"
+echo "    --instance-id $BATCH_INSTANCE_ID"
+echo ""
+echo "Note: The batch instance will automatically stop after completion."
 echo ""
