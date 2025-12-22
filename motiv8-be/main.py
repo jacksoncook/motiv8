@@ -12,8 +12,6 @@ import logging
 from authlib.integrations.starlette_client import OAuth
 from sqlalchemy.orm import Session
 
-from faceid_extractor import get_face_extractor
-from image_generator import get_image_generator
 from database import get_db, init_db
 from models import User
 from migrate import migrate_database
@@ -118,7 +116,7 @@ async def upload_image(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload a selfie image and extract FaceID embedding. Each user can have only one selfie."""
+    """Upload a selfie image. Face extraction will be done during batch processing."""
     try:
         # Validate file type
         if not file.content_type or not file.content_type.startswith("image/"):
@@ -130,55 +128,39 @@ async def upload_image(
             is_update = True
             # Delete old files from storage (S3 or local)
             uploads_storage.delete(current_user.selfie_filename)
-            embeddings_storage.delete(current_user.selfie_embedding_filename)
+            # Also delete old embedding if it exists
+            if current_user.selfie_embedding_filename:
+                embeddings_storage.delete(current_user.selfie_embedding_filename)
 
         # Generate unique filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_extension = os.path.splitext(file.filename)[1]
         unique_filename = f"{timestamp}_{file.filename}"
 
-        # Save to temporary local file for processing
+        # Save to temporary local file
         temp_file_path = UPLOAD_DIR / unique_filename
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
         logger.info(f"Image saved temporarily: {temp_file_path}")
 
-        # Extract face embedding from local temp file
-        extractor = get_face_extractor()
-        result = extractor.extract_embedding(str(temp_file_path))
-
-        if not result["success"]:
-            # Clean up temp file if face extraction failed
-            os.remove(temp_file_path)
-            raise HTTPException(
-                status_code=400,
-                detail=f"Face extraction failed: {result.get('error', 'Unknown error')}"
-            )
-
-        # Save embedding to temporary local file
-        embedding_filename = f"{timestamp}_{os.path.splitext(file.filename)[0]}.npy"
-        temp_embedding_path = EMBEDDINGS_DIR / embedding_filename
-        extractor.save_embedding(result["embedding"], str(temp_embedding_path))
-
         # Get file size before uploading
         file_size = os.path.getsize(temp_file_path)
 
-        # Upload both files to storage (S3 or local)
+        # Upload image to storage (S3 or local)
         uploads_storage.save_from_file(unique_filename, str(temp_file_path))
-        embeddings_storage.save_from_file(embedding_filename, str(temp_embedding_path))
 
-        logger.info(f"Files uploaded to storage: {unique_filename}, {embedding_filename}")
+        logger.info(f"File uploaded to storage: {unique_filename}")
 
-        # Clean up temp files if using S3
+        # Clean up temp file if using S3
         if USE_S3:
             os.remove(temp_file_path)
-            os.remove(temp_embedding_path)
-            logger.info("Cleaned up temporary files")
+            logger.info("Cleaned up temporary file")
 
         # Update user's selfie in database
+        # Note: embedding will be created during batch processing
         current_user.selfie_filename = unique_filename
-        current_user.selfie_embedding_filename = embedding_filename
+        current_user.selfie_embedding_filename = None  # Will be set by batch job
         db.commit()
         db.refresh(current_user)
 
@@ -187,16 +169,11 @@ async def upload_image(
         return JSONResponse(
             status_code=200,
             content={
-                "message": "Selfie updated successfully" if is_update else "Selfie uploaded successfully",
+                "message": "Selfie updated successfully. Face extraction will occur during next batch processing." if is_update else "Selfie uploaded successfully. Face extraction will occur during next batch processing.",
                 "filename": unique_filename,
-                "embedding_filename": embedding_filename,
                 "original_filename": file.filename,
                 "content_type": file.content_type,
                 "size_bytes": file_size,
-                "num_faces": result["num_faces"],
-                "bbox": result["bbox"],
-                "embedding_shape": list(result["embedding_shape"]),
-                "embedding_dtype": result["embedding_dtype"],
                 "is_update": is_update
             }
         )
@@ -234,6 +211,9 @@ async def generate_image(
         )
 
     try:
+        # Lazy import image generator (only needed in development)
+        from image_generator import get_image_generator
+
         # Check if embedding file exists in storage
         if not embeddings_storage.exists(request.embedding_filename):
             raise HTTPException(
