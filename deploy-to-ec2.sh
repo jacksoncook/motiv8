@@ -25,7 +25,10 @@ echo "Installing packages..."
 sudo yum install -y git python3 python3-pip nginx certbot python3-certbot-nginx
 
 # Install Node.js 20.x (Vite requires 20.19+)
-echo "Installing Node.js 20.x..."
+echo "Upgrading to Node.js 20.x..."
+# Remove old nodejs if present
+sudo yum remove -y nodejs nodejs-npm
+# Install Node.js 20 from nodesource
 curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
 sudo yum install -y nodejs
 
