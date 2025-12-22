@@ -154,26 +154,34 @@ Resources:
 
           # Update system
           yum update -y
-          yum install -y docker git python3-pip
-
-          # Start Docker
-          systemctl start docker
-          systemctl enable docker
-          usermod -aG docker ec2-user
+          yum install -y git python3 python3-pip python3-devel gcc gcc-c++ make
 
           # Install AWS CLI
           pip3 install awscli --upgrade
 
-          # Create app directory
-          mkdir -p /app/batch
-          cd /app/batch
+          # Clone repository
+          cd /opt
+          git clone https://github.com/jcook03266/motiv8.git
+          cd motiv8/motiv8-be
+
+          # Create Python virtual environment
+          python3 -m venv venv
+          source venv/bin/activate
+
+          # Install Python dependencies
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
           # Get secrets from Secrets Manager and convert to .env format
           aws secretsmanager get-secret-value \
             --secret-id ${AppSecretsArn} \
             --region ${AWS::Region} \
             --query SecretString \
-            --output text | python3 -c "import sys, json; secrets = json.load(sys.stdin); [print(f'{k}={v}') for k, v in secrets.items()]" > /app/batch/.env
+            --output text | python3 -c "import sys, json; secrets = json.load(sys.stdin); [print(f'{k}={v}') for k, v in secrets.items()]" > .env
+
+          # Create app directory for batch execution
+          mkdir -p /app/batch
+          cd /app/batch
 
           # Create batch run script
           cat > /app/batch/run-batch.sh << 'RUNEOF'
@@ -182,10 +190,14 @@ Resources:
 
           echo "Starting batch job at $(date)"
 
-          # Pull latest code/image from S3 or ECR
-          # Run docker compose for batch job
-          cd /app/batch
-          docker-compose -f docker-compose.batch.yaml up
+          # Pull latest code
+          cd /opt/motiv8
+          git pull origin main
+
+          # Run batch job
+          cd /opt/motiv8/motiv8-be
+          source venv/bin/activate
+          python3 batch_generate.py
 
           echo "Batch job completed at $(date)"
 
@@ -201,8 +213,8 @@ Resources:
           cat > /etc/systemd/system/motiv8-batch.service << 'SVCEOF'
           [Unit]
           Description=motiv8me Batch Job
-          After=docker.service
-          Requires=docker.service
+          After=network-online.target
+          Wants=network-online.target
 
           [Service]
           Type=oneshot
