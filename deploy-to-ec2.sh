@@ -49,11 +49,31 @@ cd $APP_DIR
 # Get secrets from AWS Secrets Manager (already has .env from UserData)
 echo ".env file already created by CloudFormation UserData"
 
-# Build frontend
-echo "Building frontend..."
-cd $APP_DIR/motiv8-fe
-npm install
-npm run build
+# Get AWS region and S3 bucket from CloudFormation
+echo "Getting S3 bucket from CloudFormation..."
+S3_BUCKET=$(aws cloudformation describe-stacks \
+  --stack-name production-motiv8-main \
+  --region us-east-1 \
+  --query 'Stacks[0].Outputs[?OutputKey==`UploadsBucketName`].OutputValue' \
+  --output text 2>/dev/null || echo "production-motiv8-uploads-901478075158")
+
+# Deploy frontend from S3
+echo "Deploying frontend from S3..."
+mkdir -p /var/www/motiv8
+sudo mkdir -p /var/www/motiv8
+
+# Download and extract frontend
+echo "Downloading frontend from S3..."
+curl -L -o /tmp/motiv8-fe-dist.tar.gz \
+  "$(aws s3 presign s3://$S3_BUCKET/deployment/motiv8-fe-dist.tar.gz --expires-in 3600 --region us-east-1)"
+
+echo "Extracting frontend..."
+sudo tar -xzf /tmp/motiv8-fe-dist.tar.gz -C /var/www/motiv8/
+sudo rm /tmp/motiv8-fe-dist.tar.gz
+
+echo "Setting frontend permissions..."
+sudo chown -R ec2-user:nginx /var/www/motiv8/dist
+sudo chmod -R 755 /var/www/motiv8/dist
 
 # Install backend Python dependencies in virtual environment
 echo "Setting up backend virtual environment..."
@@ -70,17 +90,13 @@ mkdir -p $APP_DIR/motiv8-be/uploads
 sudo chown -R ec2-user:ec2-user $APP_DIR/motiv8-be/uploads
 chmod -R 755 $APP_DIR/motiv8-be/uploads
 
-# Fix frontend dist permissions for nginx
-echo "Setting frontend dist permissions..."
-sudo chown -R ec2-user:nginx $APP_DIR/motiv8-fe/dist
-sudo chmod -R 755 $APP_DIR/motiv8-fe/dist
-
 # Configure Nginx
 echo "Configuring Nginx..."
-sudo tee /etc/nginx/conf.d/motiv8.conf > /dev/null <<'EOF'
+sudo tee /etc/nginx/conf.d/default.conf > /dev/null <<'EOF'
 # HTTP server - redirect to HTTPS
 server {
     listen 80;
+    listen [::]:80;
     server_name motiv8me.io www.motiv8me.io;
 
     # Allow Let's Encrypt challenges
@@ -90,89 +106,45 @@ server {
 
     # Redirect all other traffic to HTTPS
     location / {
-        return 301 https://$host$request_uri;
+        return 301 https://$server_name$request_uri;
     }
 }
 
 # HTTPS server
 server {
-    listen 443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
     server_name motiv8me.io www.motiv8me.io;
 
-    # SSL certificates
+    # SSL certificates managed by certbot
     ssl_certificate /etc/letsencrypt/live/motiv8me.io/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/motiv8me.io/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
-    # SSL configuration
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
-
-    root /app/motiv8-fe/dist;
-    index index.html;
-
-    # Backend API endpoints - must come BEFORE the frontend catch-all
+    # API routes - proxy to backend
     location /api/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://localhost:8000/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port $server_port;
     }
 
-    # Backend auth endpoints - exact matches only
-    location = /auth/login {
-        proxy_pass http://127.0.0.1:8000;
+    # Auth routes - proxy to backend
+    location /auth/ {
+        proxy_pass http://localhost:8000/auth/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port $server_port;
     }
 
-    location = /auth/callback {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port $server_port;
-    }
-
-    location = /auth/me {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port $server_port;
-    }
-
-    location = /auth/logout {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port $server_port;
-    }
-
-    # Static assets - serve directly without fallback to prevent MIME type issues
-    location /assets/ {
-        try_files $uri =404;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # Frontend static files and SPA fallback
+    # Static files for frontend
     location / {
+        root /var/www/motiv8/dist;
         try_files $uri $uri/ /index.html;
+        index index.html;
     }
 }
 EOF

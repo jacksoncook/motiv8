@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(aws cloudformation describe-stack-resources:*)",
+      "Bash(aws cloudformation:*)",
+      "Bash(aws ec2 describe-instances:*)",
+      "Bash(python3:*)",
+      "Bash(aws ec2 describe-images:*)",
+      "Bash(aws ec2 describe-instance-type-offerings:*)",
+      "Bash(aws ec2 describe-subnets:*)",
+      "Bash(aws iam get-instance-profile:*)",
+      "Bash(aws service-quotas:*)",
+      "Bash(aws ec2 describe-account-attributes:*)",
+      "Bash(aws route53 list-resource-record-sets:*)",
+      "Bash(aws s3 rm:*)",
+      "Bash(aws s3api list-object-versions:*)",
+      "Bash(aws s3api delete-objects --bucket motiv8me-frontend-901478075158-us-east-1 --delete \"$(cat <<''EOF''\n{\n  \"Objects\": [\n    {\"Key\": \"assets/index-5nfte_4a.js\", \"VersionId\": \".jtcIqelbJmJo_bUTMXoJkSJOXHJxHAF\"},\n    {\"Key\": \"assets/index-ClPV_X0Z.css\", \"VersionId\": \"06RDfE9CtuhfDPJ5.9A36kbp4WD_x3rd\"},\n    {\"Key\": \"index.html\", \"VersionId\": \"Ae_UAwMakYMq5uQaoDCbRU4C46eww4Xu\"},\n    {\"Key\": \"motiv8.png\", \"VersionId\": \"5tyZ17Mu7H3On6IFkrj0gFO3.UyJTaQ1\"},\n    {\"Key\": \"vite.svg\", \"VersionId\": \"62lMNssCnjVDninYnJ4Xt2JFBudx61ok\"},\n    {\"Key\": \"assets/index-5nfte_4a.js\", \"VersionId\": \"HyJDnkvI0X9tO0x99aV73yZj2Nxe7LuN\"},\n    {\"Key\": \"assets/index-ClPV_X0Z.css\", \"VersionId\": \"dFF36WJugpvg9tuKiRThsvBHFP_1z1vK\"},\n    {\"Key\": \"index.html\", \"VersionId\": \"e57Howj_rlTAAZsrtglpK_ei.ysZ5J2F\"},\n    {\"Key\": \"motiv8.png\", \"VersionId\": \"wABUclh1WJu86uAlZXJMi_TCESolG9iR\"},\n    {\"Key\": \"vite.svg\", \"VersionId\": \"6rnZLhAFAzlnBChCSxlZitYRNVViK0Pk\"}\n  ],\n  \"Quiet\": false\n}\nEOF\n)\")",
+      "Bash(aws ec2 describe-instance-status:*)",
+      "Bash(aws ec2 get-console-output:*)",
+      "Bash(ssh:*)",
+      "Bash(aws ec2 describe-security-groups:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
