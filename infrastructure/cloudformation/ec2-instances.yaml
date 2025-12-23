@@ -235,7 +235,7 @@ Resources:
           Value: 'true'
     CreationPolicy:
       ResourceSignal:
-        Timeout: PT15M
+        Timeout: PT30M
 
   # ==========================================
   # Lambda Function for Starting Batch Instance
@@ -290,6 +290,15 @@ Resources:
       Action: 'lambda:InvokeFunction'
       Principal: events.amazonaws.com
       SourceArn: !GetAtt DailyBatchRule.Arn
+
+  # ==========================================
+  # Elastic IP Association for WebApp
+  # ==========================================
+  WebAppEIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref WebAppInstance
+      AllocationId: eipalloc-0c83d3278e738a0c0
 
 Outputs:
   WebAppInstanceId:
