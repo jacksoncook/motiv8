@@ -3,7 +3,8 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import './WorkoutDays.css';
 
-const API_BASE_URL = window.location.origin;
+const API_BASE_URL =
+  (import.meta as any).env?.VITE_API_BASE_URL || "https://api.motiv8me.io";
 
 const DAYS_OF_WEEK = [
   { key: 'monday', label: 'Monday' },
