@@ -54,7 +54,7 @@ Parameters:
     Type: String
     Description: Existing SG for the batch instance
 
-  # FIX: Must be the INSTANCE PROFILE NAME (not ARN).
+  # Must be INSTANCE PROFILE NAME (not ARN)
   InstanceProfileName:
     Type: String
     Description: IAM instance profile NAME (not ARN), e.g. production-motiv8-instance-profile
@@ -69,6 +69,18 @@ Parameters:
 
   BatchControlRoleArn:
     Type: String
+
+  # NEW: bump to republish FE + invalidate CloudFront on stack update
+  FrontendPublishVersion:
+    Type: String
+    Default: v1
+    Description: Bump to trigger frontend republish (custom resource) and CloudFront invalidation.
+
+  # NEW: bump to force WebAppInstance replacement so it pulls latest backend artifact
+  ApiDeployVersion:
+    Type: String
+    Default: v1
+    Description: Bump to force WebAppInstance replacement (UserData changes) so it pulls the latest backend tarball.
 
 Mappings:
   RegionMap:
@@ -86,7 +98,7 @@ Resources:
       Value: !Sub ${ApiSubdomain}.${RootDomainName}
 
   # ==========================================================
-  # Frontend: S3 + CloudFront + ACM + Route53 (motiv8me.io)
+  # Frontend: S3 + CloudFront + ACM + Route53
   # ==========================================================
   FrontendBucket:
     Type: AWS::S3::Bucket
@@ -119,6 +131,8 @@ Resources:
       ValidationMethod: DNS
       DomainValidationOptions:
         - DomainName: !Ref RootDomainName
+          HostedZoneId: !Ref HostedZoneId
+        - DomainName: !Sub www.${RootDomainName}
           HostedZoneId: !Ref HostedZoneId
       SubjectAlternativeNames:
         - !Sub www.${RootDomainName}
@@ -188,7 +202,7 @@ Resources:
       Type: A
       AliasTarget:
         DNSName: !GetAtt FrontendDistribution.DomainName
-        HostedZoneId: Z2FDTNDATAQYW2 # CloudFront hosted zone ID (global)
+        HostedZoneId: Z2FDTNDATAQYW2
 
   FrontendWwwDnsRecord:
     Type: AWS::Route53::RecordSet
@@ -200,9 +214,8 @@ Resources:
         DNSName: !GetAtt FrontendDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2
 
-
   # ==========================================================
-  # API: ALB + ACM + EC2 (uvicorn on :8000) + Route53 (api.motiv8me.io)
+  # API: ALB + ACM + EC2 (uvicorn :8000) + Route53
   # ==========================================================
   ApiAlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -310,7 +323,7 @@ Resources:
 
   # ==========================================================
   # Web App EC2 Instance (Always Running) - API only
-  # FIX: install aws-cfn-bootstrap so cfn-signal exists on AL2023
+  # Includes ApiDeployVersion in UserData to force replacement on bump
   # ==========================================================
   WebAppInstance:
     Type: AWS::EC2::Instance
@@ -328,10 +341,19 @@ Resources:
             VolumeSize: 30
             VolumeType: gp3
             DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-webapp
+        - Key: Role
+          Value: api
+        - Key: DeployVersion
+          Value: !Ref ApiDeployVersion
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -xe
           exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+
+          echo "ApiDeployVersion=${ApiDeployVersion}"
 
           yum update -y
           yum install -y awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc
@@ -387,7 +409,6 @@ Resources:
 
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
-  # FIX: install aws-cfn-bootstrap so cfn-signal exists on AL2023
   # ==========================================================
   BatchInstance:
     Type: AWS::EC2::Instance
@@ -405,11 +426,17 @@ Resources:
             VolumeSize: 50
             VolumeType: gp3
             DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-batch
+        - Key: AutoShutdown
+          Value: 'true'
+        - Key: Version
+          Value: 'v3-fixed-env-and-venv'
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -xe
           exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-          # Instance version: v3-fixed-env-and-venv-20251223
 
           yum update -y
           yum install -y awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc gcc-c++ make
@@ -501,17 +528,10 @@ Resources:
           systemctl enable motiv8-batch.service
 
           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BatchInstance --region ${AWS::Region}
-      Tags:
-        - Key: Name
-          Value: !Sub ${EnvironmentName}-batch
-        - Key: AutoShutdown
-          Value: 'true'
-        - Key: Version
-          Value: 'v3-fixed-env-and-venv'
 
-  # ==========================================
+  # ==========================================================
   # Lambda Function for Starting Batch Instance
-  # ==========================================
+  # ==========================================================
   StartBatchInstanceFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -527,9 +547,7 @@ Resources:
         ZipFile: |
           import boto3
           import os
-
           ec2 = boto3.client('ec2')
-
           def lambda_handler(event, context):
               instance_id = os.environ['BATCH_INSTANCE_ID']
               print(f'Starting batch instance: {instance_id}')
@@ -556,7 +574,7 @@ Resources:
       SourceArn: !GetAtt DailyBatchRule.Arn
 
   # ==========================================================
-  # Frontend autopublish: copy+extract tarball from UploadsBucket to FrontendBucket + CloudFront invalidation
+  # Frontend autopublish: UploadsBucket tar.gz -> FrontendBucket + CloudFront invalidation
   # ==========================================================
   FrontendPublishRole:
     Type: AWS::IAM::Role
@@ -577,23 +595,17 @@ Resources:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:ListBucket
+                Action: [s3:GetObject, s3:ListBucket]
                 Resource:
                   - !Sub arn:aws:s3:::${UploadsBucket}
                   - !Sub arn:aws:s3:::${UploadsBucket}/*
               - Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:DeleteObject
-                  - s3:ListBucket
+                Action: [s3:PutObject, s3:DeleteObject, s3:ListBucket]
                 Resource:
                   - !Sub arn:aws:s3:::${FrontendBucket}
                   - !Sub arn:aws:s3:::${FrontendBucket}/*
               - Effect: Allow
-                Action:
-                  - cloudfront:CreateInvalidation
+                Action: [cloudfront:CreateInvalidation]
                 Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}
 
   FrontendPublishFunction:
@@ -614,7 +626,6 @@ Resources:
       Code:
         ZipFile: |
           import boto3, os, tarfile, tempfile, mimetypes, urllib.request, json, traceback
-
           s3 = boto3.client("s3")
           cf = boto3.client("cloudfront")
 
@@ -710,7 +721,7 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt FrontendPublishFunction.Arn
-      PublishVersion: "v1"
+      PublishVersion: !Ref FrontendPublishVersion
 
 Outputs:
   FrontendUrl:

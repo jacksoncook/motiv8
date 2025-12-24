@@ -12,6 +12,10 @@ from datetime import datetime
 import logging
 from authlib.integrations.starlette_client import OAuth
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+
+# Load environment variables BEFORE importing other modules
+load_dotenv()
 
 from database import get_db, init_db
 from models import User
@@ -89,8 +93,14 @@ else:
 
 @app.get("/")
 async def root():
-    """Health check endpoint"""
+    """Root endpoint"""
     return {"status": "ok", "service": "motiv8-api"}
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for load balancer"""
+    return {"status": "healthy"}
 
 
 @app.get("/api/config")

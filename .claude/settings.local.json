@@ -92,7 +92,17 @@
       "Bash(./infrastructure/deploy-frontend.sh:*)",
       "Bash(aws route53:*)",
       "Bash(aws ec2 describe-addresses:*)",
-      "Bash(aws elbv2 describe-load-balancers:*)"
+      "Bash(aws elbv2 describe-load-balancers:*)",
+      "Bash(aws ec2:*)",
+      "Bash(aws iam list-role-policies:*)",
+      "Bash(aws iam get-role-policy:*)",
+      "Bash(./deploy-artifacts.sh:*)",
+      "Bash(ALB_ARN=\"arn:aws:elasticloadbalancing:us-east-1:901478075158:loadbalancer/app/production-api-alb/36724aea5632dc6f\":*)",
+      "Bash(aws elbv2 describe-listeners:*)",
+      "Bash(TG_ARN=\"arn:aws:elasticloadbalancing:us-east-1:901478075158:targetgroup/production-api-tg/11a2a72900ba979a\":*)",
+      "Bash(aws elbv2 describe-target-health:*)",
+      "Bash(aws elbv2 describe-target-groups:*)",
+      "Bash(aws acm describe-certificate:*)"
     ],
     "deny": [],
     "ask": []
