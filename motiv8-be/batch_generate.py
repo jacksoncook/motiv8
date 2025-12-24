@@ -10,6 +10,9 @@ from pathlib import Path
 import logging
 from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
 from models import User
 from database import SessionLocal  # Use the database module for DB connection
 from faceid_extractor import get_face_extractor
@@ -17,8 +20,7 @@ from image_generator import get_image_generator
 from email_utils import send_motivation_email
 from storage import uploads_storage, embeddings_storage, generated_storage, USE_S3
 
-# Load environment variables
-load_dotenv()
+
 
 # Configure logging
 logging.basicConfig(
