@@ -4,6 +4,7 @@ Database configuration and setup
 
 import os
 from sqlalchemy import create_engine
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -25,6 +26,13 @@ else:
     SQLALCHEMY_DATABASE_URL = "sqlite:///./motiv8.db"
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    )
+
+    url = make_url(str(engine.url))
+    print(
+        f"DB backend: {engine.dialect.name} | "
+        f"host={url.host} | port={url.port} | database={url.database}",
+        flush=True
     )
 
 # Create SessionLocal class

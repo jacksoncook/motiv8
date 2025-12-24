@@ -583,7 +583,7 @@ Resources:
           LOG_FILE="/var/log/motiv8-batch.log"
           ENV_FILE="/etc/motiv8-batch.env"
           APP_DIR="/opt/motiv8-be"
-          PY="${APP_DIR}/venv/bin/python"
+          PY="$APP_DIR/venv/bin/python"
 
           mkdir -p "$(dirname "$LOG_FILE")"
           exec > >(tee -a "$LOG_FILE") 2>&1
