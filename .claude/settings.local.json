@@ -102,7 +102,8 @@
       "Bash(TG_ARN=\"arn:aws:elasticloadbalancing:us-east-1:901478075158:targetgroup/production-api-tg/11a2a72900ba979a\":*)",
       "Bash(aws elbv2 describe-target-health:*)",
       "Bash(aws elbv2 describe-target-groups:*)",
-      "Bash(aws acm describe-certificate:*)"
+      "Bash(aws acm describe-certificate:*)",
+      "Bash(aws ssm start-session:*)"
     ],
     "deny": [],
     "ask": []
