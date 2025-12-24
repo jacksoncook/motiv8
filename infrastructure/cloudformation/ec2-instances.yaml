@@ -446,6 +446,31 @@ Resources:
             sleep 3
             systemctl is-active motiv8-webapp.service
 
+            # Always signal CloudFormation on exit (success/failure)
+            CFN_SIGNAL="/opt/aws/bin/cfn-signal"
+            STACK_NAME="${AWS::StackName}"
+            RESOURCE_NAME="WebAppAutoScalingGroupV2"
+            REGION="${AWS::Region}"
+
+            # If anything fails after this point, send a FAILURE signal
+            trap 'rc=$?; echo "UserData failed with rc=$rc"; $CFN_SIGNAL -e $rc --stack "$STACK_NAME" --resource "$RESOURCE_NAME" --region "$REGION" || true; exit $rc' ERR
+
+            echo "Waiting for app healthcheck to pass before signaling CloudFormation..."
+            for i in $(seq 1 60); do
+              if curl -fsS "http://127.0.0.1:8000/health" >/dev/null 2>&1; then
+                echo "Healthcheck OK"
+                break
+              fi
+              echo "Healthcheck not ready yet ($i/60) ..."
+              sleep 5
+            done
+
+            # Final check: if still failing, trigger trap via non-zero exit
+            curl -fsS "http://127.0.0.1:8000/health" >/dev/null
+
+            echo "Signaling CloudFormation SUCCESS for $RESOURCE_NAME"
+            $CFN_SIGNAL -e 0 --stack "$STACK_NAME" --resource "$RESOURCE_NAME" --region "$REGION"
+
             # Debug proof: show what systemd loaded + what process has
             systemctl show motiv8-webapp.service -p Environment | sed 's/Environment=//' | head -c 2000 || true
 
@@ -526,10 +551,16 @@ Resources:
           yum install -y awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc gcc-c++ make
           yum install -y mesa-libGL glib2 libSM libXrender libXext
 
-          cd /opt
+          # --------------------------------------------------------------------
+          # 1) ONE-TIME provisioning at boot: code + venv in /opt/motiv8-be
+          # --------------------------------------------------------------------
+          mkdir -p /opt
           aws s3 cp s3://${UploadsBucket}/deployment/motiv8-be.tar.gz /tmp/motiv8-be.tar.gz --region ${AWS::Region}
+
+          rm -rf /opt/motiv8-be
           tar -xzf /tmp/motiv8-be.tar.gz -C /opt
           rm /tmp/motiv8-be.tar.gz
+
           cd /opt/motiv8-be
 
           python3 -m venv venv
@@ -537,56 +568,85 @@ Resources:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-          aws secretsmanager get-secret-value \
-            --secret-id ${AppSecretsArn} \
-            --region ${AWS::Region} \
-            --query SecretString \
-            --output text | python3 -c "import sys, json; secrets = json.load(sys.stdin); [print(f'{k}={v}') for k, v in secrets.items()]" > .env
-
+          # --------------------------------------------------------------------
+          # 2) Create run script that DOES NOT redownload code or rebuild venv
+          #    It fetches secrets fresh each run and writes /etc/motiv8-batch.env
+          # --------------------------------------------------------------------
           mkdir -p /app/batch
-          cd /app/batch
-
-          cat > /app/batch/run-batch.sh << RUNEOF
+          cat > /app/batch/run-batch.sh << 'RUNEOF'
           #!/bin/bash
-          set -e
+          set -euo pipefail
 
-          echo "Starting batch job at \$(date)"
+          REGION="${AWS::Region}"
+          APP_SECRETS_ARN="${AppSecretsArn}"
 
-          if [ -f "/opt/motiv8-be/.env" ]; then
-            echo "Preserving .env file..."
-            cp /opt/motiv8-be/.env /tmp/motiv8-be.env.backup
+          LOG_FILE="/var/log/motiv8-batch.log"
+          ENV_FILE="/etc/motiv8-batch.env"
+          APP_DIR="/opt/motiv8-be"
+          PY="${APP_DIR}/venv/bin/python"
+
+          mkdir -p "$(dirname "$LOG_FILE")"
+          exec > >(tee -a "$LOG_FILE") 2>&1
+
+          echo "================================================"
+          echo "motiv8me Batch Job"
+          echo "Started: $(date -u) (UTC)"
+          echo "Host: $(hostname)"
+          echo "================================================"
+
+          if [ ! -d "$APP_DIR" ]; then
+            echo "ERROR: $APP_DIR does not exist."
+            exit 1
           fi
 
-          echo "Downloading latest code from S3..."
-          aws s3 cp s3://${UploadsBucket}/deployment/motiv8-be.tar.gz /tmp/motiv8-be-latest.tar.gz --region ${AWS::Region}
-
-          if [ -d "/opt/motiv8-be" ]; then
-            rm -rf /opt/motiv8-be.bak
-            mv /opt/motiv8-be /opt/motiv8-be.bak
+          if [ ! -x "$PY" ]; then
+            echo "ERROR: Python venv not found at $PY"
+            exit 1
           fi
 
-          tar -xzf /tmp/motiv8-be-latest.tar.gz -C /opt
-          rm /tmp/motiv8-be-latest.tar.gz
+          cd "$APP_DIR"
 
-          if [ -f "/tmp/motiv8-be.env.backup" ]; then
-            echo "Restoring .env file..."
-            cp /tmp/motiv8-be.env.backup /opt/motiv8-be/.env
-            rm /tmp/motiv8-be.env.backup
-          fi
+          echo "Fetching secrets from Secrets Manager..."
+          SECRETS_JSON="$(aws secretsmanager get-secret-value \
+            --secret-id "$APP_SECRETS_ARN" \
+            --region "$REGION" \
+            --query SecretString \
+            --output text)"
 
-          cd /opt/motiv8-be
+          echo "Writing shell-safe env to $ENV_FILE ..."
+          ENV_FILE="$ENV_FILE" SECRETS_JSON="$SECRETS_JSON" python3 - <<'PY'
+          import json, os, shlex
+          from pathlib import Path
 
-          echo "Creating virtual environment..."
-          python3 -m venv venv
+          env_file = Path(os.environ["ENV_FILE"])
+          secrets = json.loads(os.environ["SECRETS_JSON"])
 
-          echo "Installing dependencies..."
-          /opt/motiv8-be/venv/bin/pip install --upgrade pip --quiet
-          /opt/motiv8-be/venv/bin/pip install -r requirements.txt --quiet
+          lines = []
+          for k, v in secrets.items():
+              lines.append(f"{k}={shlex.quote(str(v))}")
+
+          env_file.write_text("\n".join(lines) + "\n")
+          PY
+
+          chmod 600 "$ENV_FILE"
+
+          set -a
+          # shellcheck disable=SC1090
+          source "$ENV_FILE"
+          set +a
+
+          # Quick sanity check: show DB target (password redacted by SQLAlchemy URL repr)
+          echo "Verifying SQLAlchemy engine target..."
+          "$PY" - <<'PY'
+          from database import engine
+          print("engine.url =", engine.url)
+          PY
 
           echo "Running batch_generate.py..."
-          /opt/motiv8-be/venv/bin/python batch_generate.py
+          "$PY" batch_generate.py
 
-          echo "Batch job completed at \$(date)"
+          echo "Batch job completed successfully at $(date -u) (UTC)"
+          echo "================================================"
 
           echo "Shutting down instance in 5 minutes..."
           sleep 300
@@ -595,6 +655,9 @@ Resources:
 
           chmod +x /app/batch/run-batch.sh
 
+          # --------------------------------------------------------------------
+          # 3) systemd oneshot service to run the batch script
+          # --------------------------------------------------------------------
           cat > /etc/systemd/system/motiv8-batch.service << 'SVCEOF'
           [Unit]
           Description=motiv8me Batch Job
@@ -609,6 +672,7 @@ Resources:
           WantedBy=multi-user.target
           SVCEOF
 
+          systemctl daemon-reload
           systemctl enable motiv8-batch.service
 
           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BatchInstance --region ${AWS::Region}
