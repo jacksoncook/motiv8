@@ -3,13 +3,15 @@ Image Generator using IP-Adapter-FaceID
 Generates images with uploaded face applied to muscular body
 """
 
-import torch
-import numpy as np
-from diffusers import StableDiffusionPipeline, DDIMScheduler, AutoencoderKL
-from PIL import Image
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+import numpy as np
+import torch
+from diffusers import StableDiffusionPipeline, DDIMScheduler, AutoencoderKL
+from PIL import Image
+
 from ip_adapter.ip_adapter_faceid import IPAdapterFaceIDPlus
 
 logger = logging.getLogger(__name__)
@@ -22,8 +24,20 @@ class ImageGenerator:
         """Initialize the image generator"""
         self.ip_model = None
         self._initialized = False
-        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
-        logger.info(f"Using device: {self.device}")
+
+        # Correct device selection for EC2 (CUDA) + local (MPS) + fallback (CPU)
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
+
+        # Keep dtype consistent across pipeline + IP-Adapter
+        # (fp16 on GPU/MPS, fp32 on CPU)
+        self.dtype = torch.float16 if self.device in ("cuda", "mps") else torch.float32
+
+        logger.info(f"Using device: {self.device}, dtype: {self.dtype}")
 
     def initialize(self):
         """Lazy initialization of the IP-Adapter-FaceID pipeline"""
@@ -50,24 +64,30 @@ class ImageGenerator:
                 steps_offset=1,
             )
 
-            # Load VAE
+            # Load VAE in the same dtype/device
             logger.info("Loading VAE...")
-            vae = AutoencoderKL.from_pretrained(vae_model_path).to(dtype=torch.float32)
+            vae = AutoencoderKL.from_pretrained(vae_model_path).to(self.device, dtype=self.dtype)
 
-            # Create base pipeline
+            # Create base pipeline in the same dtype/device
             logger.info("Loading Stable Diffusion pipeline...")
             pipe = StableDiffusionPipeline.from_pretrained(
                 base_model_path,
-                torch_dtype=torch.float32,
+                torch_dtype=self.dtype,
                 scheduler=noise_scheduler,
                 vae=vae,
                 feature_extractor=None,
-                safety_checker=None
-            )
+                safety_checker=None,
+            ).to(self.device)
 
-            # Initialize IP-Adapter-FaceID
+            # Initialize IP-Adapter-FaceID with matching dtype
             logger.info("Loading IP-Adapter-FaceID...")
-            self.ip_model = IPAdapterFaceIDPlus(pipe, image_encoder_path, ip_ckpt, self.device)
+            self.ip_model = IPAdapterFaceIDPlus(
+                pipe,
+                image_encoder_path,
+                ip_ckpt,
+                self.device,
+                torch_dtype=self.dtype,
+            )
 
             self._initialized = True
             logger.info("IP-Adapter-FaceID pipeline initialized successfully")
@@ -85,13 +105,14 @@ class ImageGenerator:
         num_inference_steps: int = 30,
         guidance_scale: float = 7.5,
         seed: Optional[int] = None,
-        scale: float = 0.8  # IP-Adapter scale (0-1, controls how much face is preserved)
+        scale: float = 0.8,  # IP-Adapter scale (0-1, controls how much face is preserved)
     ) -> Dict[str, Any]:
         """
         Generate an image using the face embedding with IP-Adapter-FaceID
 
         Args:
             embedding_path: Path to the .npy embedding file
+            image_path: Path to the face image (required by Plus variant for CLIP encoding)
             prompt: Text prompt for generation
             negative_prompt: Negative prompt
             num_inference_steps: Number of denoising steps
@@ -109,61 +130,57 @@ class ImageGenerator:
             self.initialize()
 
         try:
-            # Load the embedding
-            embedding = np.load(embedding_path)
-            logger.info(f"Loaded embedding from {embedding_path}, shape: {embedding.shape}")
+            # Load the embedding and normalize dtype
+            embedding = np.load(embedding_path).astype(np.float32)
+            logger.info(f"Loaded embedding from {embedding_path}, shape: {embedding.shape}, dtype: {embedding.dtype}")
 
-            # Convert to torch tensor and add batch dimension
-            faceid_embeds = torch.from_numpy(embedding).unsqueeze(0)
-            logger.info(f"Face embedding tensor shape: {faceid_embeds.shape}")
+            # Convert to torch tensor and add batch dimension; move to device + dtype
+            faceid_embeds = (
+                torch.from_numpy(embedding)
+                .unsqueeze(0)
+                .to(device=self.device, dtype=self.dtype)
+            )
+            logger.info(
+                f"Face embedding tensor shape: {faceid_embeds.shape}, dtype: {faceid_embeds.dtype}, device: {faceid_embeds.device}"
+            )
 
             # Load the original face image for CLIP encoding (required by Plus variant)
             face_image = None
             if image_path and Path(image_path).exists():
-                face_image = Image.open(image_path)
+                face_image = Image.open(image_path).convert("RGB")
                 logger.info(f"Loaded face image from {image_path}")
             else:
-                logger.warning("No face image provided - using embedding only")
-
-            # Set random seed if provided
-            if seed is not None:
-                generator = torch.Generator(device=self.device).manual_seed(seed)
-            else:
-                generator = None
+                logger.warning("No face image provided - IPAdapterFaceIDPlus expects a face image; generation may fail.")
 
             logger.info(f"Generating image with prompt: {prompt}")
             logger.info(f"IP-Adapter scale: {scale}")
 
             # Generate image using IP-Adapter-FaceID
-            image = self.ip_model.generate(
+            images = self.ip_model.generate(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
-                face_image=face_image,  # Original face image for CLIP
-                faceid_embeds=faceid_embeds,  # InsightFace embedding
-                shortcut=False,  # Use full IP-Adapter
-                s_scale=1.0,  # Structure scale
+                face_image=face_image,          # Original face image for CLIP
+                faceid_embeds=faceid_embeds,    # InsightFace embedding
+                shortcut=False,                 # Use full IP-Adapter
+                s_scale=1.0,                    # Structure scale
                 num_samples=1,
                 width=512,
-                height=768,  # Portrait aspect ratio
+                height=768,                     # Portrait aspect ratio
                 num_inference_steps=num_inference_steps,
                 guidance_scale=guidance_scale,
                 seed=seed if seed is not None else -1,
-                scale=scale  # IP-Adapter influence
+                scale=scale,                    # IP-Adapter influence
             )
 
             logger.info("Image generated successfully")
 
-            return {
-                "success": True,
-                "image": image[0] if isinstance(image, list) else image
-            }
+            # ip_model.generate returns a list of PIL images
+            out_image = images[0] if isinstance(images, list) else images
+            return {"success": True, "image": out_image}
 
         except Exception as e:
             logger.error(f"Error generating image: {e}", exc_info=True)
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     def save_image(self, image: Image.Image, output_path: str) -> bool:
         """
@@ -181,7 +198,7 @@ class ImageGenerator:
             logger.info(f"Image saved to {output_path}")
             return True
         except Exception as e:
-            logger.error(f"Failed to save image: {e}")
+            logger.error(f"Failed to save image: {e}", exc_info=True)
             return False
 
 
