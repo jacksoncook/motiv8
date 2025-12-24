@@ -37,6 +37,8 @@ from auth import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+PUBLIC_API_BASE = os.getenv("PUBLIC_API_BASE", "http://localhost:8000")
+
 app = FastAPI(title="motiv8me API", version="1.0.0")
 
 # Configure CORS
@@ -342,7 +344,7 @@ async def get_generated_image(filename: str):
 @app.get("/auth/login")
 async def login(request: Request):
     """Initiate Google OAuth login"""
-    redirect_uri = request.url_for('auth_callback')
+    redirect_uri = f"{PUBLIC_API_BASE}/auth/callback"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
