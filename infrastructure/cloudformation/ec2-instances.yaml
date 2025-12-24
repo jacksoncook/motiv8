@@ -475,10 +475,21 @@ Resources:
           PropagateAtLaunch: true
     UpdatePolicy:
       AutoScalingRollingUpdate:
-        MinInstancesInService: 0
+        MinInstancesInService: 1   # <-- never go below 1 serving
         MaxBatchSize: 1
         PauseTime: PT15M
-        WaitOnResourceSignals: false
+        WaitOnResourceSignals: true
+        SuspendProcesses:
+          - HealthCheck
+          - ReplaceUnhealthy
+          - AZRebalance
+          - AlarmNotification
+          - ScheduledActions
+
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+        Count: 1
 
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
