@@ -2,7 +2,6 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, Response
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import uvicorn
@@ -56,8 +55,7 @@ app.add_middleware(
     secret_key=os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")
 )
 
-# Add proxy headers middleware for handling X-Forwarded-* headers
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+# Proxy headers are handled by uvicorn with --proxy-headers flag
 
 # Configure OAuth
 oauth = OAuth()
