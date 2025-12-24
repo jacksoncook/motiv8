@@ -208,12 +208,16 @@ def generate_for_user(user: User, generator):
 
 def main():
     """Main batch job function"""
+    print("=" * 80, flush=True)
+    print("Starting daily motivation batch job", flush=True)
+    print("=" * 80, flush=True)
     logger.info("=" * 80)
     logger.info("Starting daily motivation batch job")
     logger.info("=" * 80)
 
     # Get current day
     today = get_current_day()
+    print(f"Today is: {today}", flush=True)
     logger.info(f"Today is: {today}")
 
     # Create database session
@@ -232,18 +236,24 @@ def main():
             if user.workout_days and user.workout_days.get(today, False)
         ]
 
+        print(f"Found {len(workout_users)} users with {today} as workout day", flush=True)
         logger.info(f"Found {len(workout_users)} users with {today} as workout day")
 
         if not workout_users:
+            print("No users to process today. Exiting.", flush=True)
             logger.info("No users to process today. Exiting.")
             return
 
         # Initialize face extractor and image generator
+        print("Initializing face extractor...", flush=True)
         logger.info("Initializing face extractor...")
         extractor = get_face_extractor()
+        print("Face extractor ready!", flush=True)
 
+        print("Initializing image generator (this may take a minute)...", flush=True)
         logger.info("Initializing image generator...")
         generator = get_image_generator()
+        print("Image generator ready!", flush=True)
 
         # Process each user: extract face if needed, then generate image
         extraction_count = 0
@@ -251,26 +261,41 @@ def main():
         failure_count = 0
 
         for i, user in enumerate(workout_users, 1):
+            print(f"\n[{i}/{len(workout_users)}] Processing user: {user.email}", flush=True)
             logger.info(f"Processing user {i}/{len(workout_users)}: {user.email}")
 
             # Extract face if not already done
             if not user.selfie_embedding_filename or not embeddings_storage.exists(user.selfie_embedding_filename):
+                print(f"  → Extracting face embedding...", flush=True)
                 logger.info(f"Face embedding not found for {user.email}, extracting...")
                 if extract_face_for_user(user, extractor, db):
                     extraction_count += 1
+                    print(f"  ✓ Face extraction successful", flush=True)
                     logger.info(f"Face extraction successful for {user.email}")
                 else:
+                    print(f"  ✗ Face extraction failed, skipping", flush=True)
                     logger.error(f"Face extraction failed for {user.email}, skipping image generation")
                     failure_count += 1
                     continue
 
             # Generate motivational image
+            print(f"  → Generating motivational image...", flush=True)
             if generate_for_user(user, generator):
+                print(f"  ✓ Image generated and email sent!", flush=True)
                 success_count += 1
             else:
+                print(f"  ✗ Generation failed", flush=True)
                 failure_count += 1
 
         # Summary
+        print("\n" + "=" * 80, flush=True)
+        print("BATCH JOB COMPLETED", flush=True)
+        print("=" * 80, flush=True)
+        print(f"Total users processed: {len(workout_users)}", flush=True)
+        print(f"Face extractions performed: {extraction_count}", flush=True)
+        print(f"Images generated successfully: {success_count}", flush=True)
+        print(f"Failed: {failure_count}", flush=True)
+        print("=" * 80, flush=True)
         logger.info("=" * 80)
         logger.info("Batch job completed")
         logger.info(f"Total users processed: {len(workout_users)}")
@@ -287,4 +312,5 @@ def main():
 
 
 if __name__ == "__main__":
+    print("batch_generate.py script starting...", flush=True)
     main()
