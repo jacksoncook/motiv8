@@ -344,7 +344,7 @@ async def get_generated_image(filename: str):
 @app.get("/auth/login")
 async def login(request: Request):
     """Initiate Google OAuth login"""
-    redirect_uri = f"{PUBLIC_API_BASE}/auth/callback"
+    redirect_uri = GOOGLE_REDIRECT_URI
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
