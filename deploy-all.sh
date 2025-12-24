@@ -83,8 +83,16 @@ APP_SECRETS_ARN="$(get_out AppSecretsArn)"
 UPLOADS_BUCKET="$(get_out UploadsBucketName)"
 BATCH_ROLE_ARN="$(get_out BatchControlRoleArn)"
 
+# Get RDS security group from the database (not exported from main stack)
+echo "Looking up RDS security group..."
+RDS_SG="$(aws rds describe-db-instances \
+  --db-instance-identifier production-motiv8-db \
+  --region "$REGION" \
+  --query 'DBInstances[0].VpcSecurityGroups[0].VpcSecurityGroupId' \
+  --output text 2>/dev/null || echo "")"
+
 # Sanity checks
-for v in VPC_ID PUBLIC_SUBNET_1 PUBLIC_SUBNET_2 BATCH_SG INSTANCE_PROFILE_NAME APP_SECRETS_ARN UPLOADS_BUCKET BATCH_ROLE_ARN; do
+for v in VPC_ID PUBLIC_SUBNET_1 PUBLIC_SUBNET_2 BATCH_SG INSTANCE_PROFILE_NAME APP_SECRETS_ARN UPLOADS_BUCKET BATCH_ROLE_ARN RDS_SG; do
   if [[ -z "${!v}" || "${!v}" == "null" ]]; then
     echo "ERROR: Missing main-stack output for $v"
     echo "MAIN_STACK_OUTPUTS keys were:"
@@ -109,6 +117,7 @@ echo "  VPCId=$VPC_ID"
 echo "  PublicSubnet1=$PUBLIC_SUBNET_1"
 echo "  PublicSubnet2=$PUBLIC_SUBNET_2"
 echo "  BatchSecurityGroup=$BATCH_SG"
+echo "  RdsSecurityGroup=$RDS_SG"
 echo "  InstanceProfileName=$INSTANCE_PROFILE_NAME"
 echo "  AppSecretsArn=$APP_SECRETS_ARN"
 echo "  UploadsBucket=$UPLOADS_BUCKET"
@@ -143,6 +152,7 @@ aws cloudformation deploy \
     ApiSubdomain="$API_SUBDOMAIN" \
     InstanceProfileName="$INSTANCE_PROFILE_NAME" \
     BatchSecurityGroup="$BATCH_SG" \
+    RdsSecurityGroup="$RDS_SG" \
     AppSecretsArn="$APP_SECRETS_ARN" \
     UploadsBucket="$UPLOADS_BUCKET" \
     BatchControlRoleArn="$BATCH_ROLE_ARN" \

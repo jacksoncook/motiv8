@@ -70,6 +70,10 @@ Parameters:
   BatchControlRoleArn:
     Type: String
 
+  RdsSecurityGroup:
+    Type: String
+    Description: Security group ID of the RDS database (to allow API instance connections)
+
   # NEW: bump to republish FE + invalidate CloudFront on stack update
   FrontendPublishVersion:
     Type: String
@@ -248,6 +252,16 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
+
+  # Allow API instances to connect to RDS
+  RdsIngressFromApiInstances:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref RdsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref ApiInstanceSecurityGroup
 
   ApiCertificate:
     Type: AWS::CertificateManager::Certificate
