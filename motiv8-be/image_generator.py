@@ -100,7 +100,7 @@ class ImageGenerator:
         self,
         embedding_path: str,
         image_path: Optional[str] = None,
-        prompt: str = "professional portrait photo of a person with extremely muscular bodybuilder physique, highly detailed, 8k, photorealistic",
+        prompt: str = "professional portrait photo of a person with extremely muscular bodybuilder physique wearing festive Christmas attire, Santa hat, holiday themed background with Christmas lights and decorations, highly detailed, 8k, photorealistic",
         negative_prompt: str = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality",
         num_inference_steps: int = 30,
         guidance_scale: float = 7.5,
