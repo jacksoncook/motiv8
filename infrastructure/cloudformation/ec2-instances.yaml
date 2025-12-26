@@ -86,6 +86,12 @@ Parameters:
     Default: v1
     Description: Bump to trigger LaunchTemplate/UserData change and roll the API instance (ASG size=1).
 
+  # NEW: bump to replace batch instance with latest code
+  BatchDeployVersion:
+    Type: String
+    Default: v1
+    Description: Bump to trigger batch instance replacement with updated UserData/code.
+
 Mappings:
   RegionMap:
     us-east-1:
@@ -541,7 +547,7 @@ Resources:
         - Key: AutoShutdown
           Value: 'true'
         - Key: Version
-          Value: 'v3-fixed-env-and-venv'
+          Value: !Ref BatchDeployVersion
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -xe

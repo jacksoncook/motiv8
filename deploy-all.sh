@@ -55,10 +55,12 @@ else
 fi
 FRONTEND_VER="fe-${VER}"
 API_VER="api-${VER}"
+BATCH_VER="batch-${VER}"
 
 echo "Deploy version:"
 echo "  FrontendPublishVersion=$FRONTEND_VER"
 echo "  ApiDeployVersion=$API_VER"
+echo "  BatchDeployVersion=$BATCH_VER"
 
 # --- Pull required infra params from MAIN_STACK outputs ---
 echo "Reading outputs from main stack: $MAIN_STACK"
@@ -157,7 +159,8 @@ aws cloudformation deploy \
     UploadsBucket="$UPLOADS_BUCKET" \
     BatchControlRoleArn="$BATCH_ROLE_ARN" \
     FrontendPublishVersion="$FRONTEND_VER" \
-    ApiDeployVersion="$API_VER"
+    ApiDeployVersion="$API_VER" \
+    BatchDeployVersion="$BATCH_VER"
 
 echo "Done."
 echo "Frontend: https://${ROOT_DOMAIN}"
