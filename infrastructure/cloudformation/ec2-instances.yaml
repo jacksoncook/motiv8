@@ -553,6 +553,9 @@ Resources:
           #!/bin/bash -xe
           exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
+          # Deploy version: ${BatchDeployVersion}
+          # This comment forces CloudFormation to replace the instance when BatchDeployVersion changes
+
           yum update -y
           yum install -y awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc gcc-c++ make
           yum install -y mesa-libGL glib2 libSM libXrender libXext
