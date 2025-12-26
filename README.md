@@ -12,7 +12,7 @@ motiv8/
 
 ## Backend Service (motiv8-be)
 
-A Python backend service built with FastAPI.
+A Python backend service built with FastAPI!
 
 ### Prerequisites
 
