@@ -5,15 +5,16 @@ Run this script once per day to generate images for users with today as a workou
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 import logging
+import time
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-from models import User
+from models import User, GeneratedImage
 from database import SessionLocal  # Use the database module for DB connection
 from faceid_extractor import get_face_extractor
 from image_generator import get_image_generator
@@ -119,7 +120,7 @@ def extract_face_for_user(user: User, extractor, db):
         return False
 
 
-def generate_for_user(user: User, generator):
+def generate_for_user(user: User, generator, db):
     """Generate motivational image for a single user"""
     temp_embedding_path = None
     temp_image_path = None
@@ -178,8 +179,20 @@ def generate_for_user(user: User, generator):
         logger.info(f"Image saved to temp: {temp_generated_path}")
 
         # Upload generated image to storage
-        generated_storage.save_from_file(generated_filename, str(temp_generated_path))
+        s3_key = generated_storage.save_from_file(generated_filename, str(temp_generated_path))
         logger.info(f"Image uploaded to storage: {generated_filename}")
+
+        # Record generated image in database
+        generation_time_millis = int(time.time() * 1000)
+        generated_image = GeneratedImage(
+            user_id=user.id,
+            s3_key=s3_key,
+            generation_date=date.today(),
+            generated_at_millis=generation_time_millis
+        )
+        db.add(generated_image)
+        db.commit()
+        logger.info(f"Generated image recorded in database: {generated_image.id}")
 
         # Send email with local temp file
         email_sent = send_motivation_email(user.email, str(temp_generated_path))
@@ -282,7 +295,7 @@ def main():
 
             # Generate motivational image
             print(f"  → Generating motivational image...", flush=True)
-            if generate_for_user(user, generator):
+            if generate_for_user(user, generator, db):
                 print(f"  ✓ Image generated and email sent!", flush=True)
                 success_count += 1
             else:

@@ -2,7 +2,7 @@
 Database models
 """
 
-from sqlalchemy import Column, String, DateTime, JSON
+from sqlalchemy import Column, String, DateTime, JSON, ForeignKey, Date, BigInteger
 from sqlalchemy.sql import func
 import uuid
 from database import Base
@@ -37,3 +37,17 @@ class User(Base):
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email})>"
+
+
+class GeneratedImage(Base):
+    """Generated image tracking model"""
+    __tablename__ = "generated_images"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    s3_key = Column(String, nullable=False)  # S3 key (e.g., "generated_images/filename.png")
+    generation_date = Column(Date, nullable=False, index=True)  # Date only (YYYY-MM-DD)
+    generated_at_millis = Column(BigInteger, nullable=False)  # Epoch time in milliseconds
+
+    def __repr__(self):
+        return f"<GeneratedImage(id={self.id}, user_id={self.user_id}, generation_date={self.generation_date})>"

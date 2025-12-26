@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database import get_db, init_db
-from models import User
+from models import User, GeneratedImage
 from migrate import migrate_database
 from email_utils import send_motivation_email
 from storage import uploads_storage, embeddings_storage, generated_storage, USE_S3
