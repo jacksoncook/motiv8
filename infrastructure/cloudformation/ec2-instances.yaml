@@ -583,7 +583,7 @@ Resources:
 
           # --------------------------------------------------------------------
           # 2) Boot-time prep: ensure /app/batch/run-batch.sh always points at artifact
-          #    IMPORTANT: UserData does NOT rerun on stop/start, so this must run each boot.
+          #    IMPORTANT: This service runs each boot. We also start the batch job after prep.
           # --------------------------------------------------------------------
           cat > /etc/systemd/system/motiv8-batch-boot.service << 'SVCEOF'
           [Unit]
@@ -604,12 +604,8 @@ Resources:
               exit 1; \
             fi; \
             ls -la /app/batch/run-batch.sh'
+          ExecStartPost=/bin/systemctl start motiv8-batch.service
           SVCEOF
-
-          # Enable + run boot-prep now (so current boot has correct symlink too)
-          systemctl daemon-reload
-          systemctl enable motiv8-batch-boot.service
-          systemctl start motiv8-batch-boot.service
 
           # --------------------------------------------------------------------
           # 3) systemd oneshot service to run the batch script
@@ -632,11 +628,18 @@ Resources:
           WantedBy=multi-user.target
           SVCEOF
 
+          # --------------------------------------------------------------------
+          # Enable units and run boot-prep now (which will then start the batch)
+          # NOTE: Order matters: motiv8-batch.service must exist before boot service tries to start it.
+          # --------------------------------------------------------------------
           systemctl daemon-reload
+          systemctl enable motiv8-batch-boot.service
           systemctl enable motiv8-batch.service
 
-          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BatchInstance2 --region ${AWS::Region}
+          # Run boot-prep now so the current boot also starts the batch job
+          systemctl start motiv8-batch-boot.service
 
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BatchInstance2 --region ${AWS::Region}
 
   # ==========================================================
   # Lambda Function for Starting Batch Instance
@@ -897,4 +900,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance
+    Value: !Ref BatchInstance2
