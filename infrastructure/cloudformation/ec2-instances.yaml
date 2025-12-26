@@ -554,7 +554,8 @@ Resources:
           exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
           # Deploy version: ${BatchDeployVersion}
-          # This comment forces CloudFormation to replace the instance when BatchDeployVersion changes
+          export BATCH_DEPLOY_VERSION="${BatchDeployVersion}"
+          echo "Batch Deploy Version: $BATCH_DEPLOY_VERSION"
 
           yum update -y
           yum install -y awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc gcc-c++ make
@@ -577,123 +578,54 @@ Resources:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-          # --------------------------------------------------------------------
-          # 2) Create run script that DOES NOT redownload code or rebuild venv
-          #    It fetches secrets fresh each run and writes /etc/motiv8-batch.env
-          # --------------------------------------------------------------------
-          mkdir -p /app/batch
-          cat > /app/batch/run-batch.sh << 'RUNEOF'
-          #!/bin/bash
-          set -euo pipefail
-
-          REGION="${AWS::Region}"
-          APP_SECRETS_ARN="${AppSecretsArn}"
-
-          LOG_FILE="/var/log/motiv8-batch.log"
-          ENV_FILE="/etc/motiv8-batch.env"
-          APP_DIR="/opt/motiv8-be"
-          PY="$APP_DIR/venv/bin/python"
-
-          mkdir -p "$(dirname "$LOG_FILE")"
-          exec > >(tee -a "$LOG_FILE") 2>&1
-
-          echo "================================================"
-          echo "motiv8me Batch Job"
-          echo "Started: $(date -u) (UTC)"
-          echo "Host: $(hostname)"
-          echo "================================================"
-
-          if [ ! -d "$APP_DIR" ]; then
-            echo "ERROR: $APP_DIR does not exist."
-            exit 1
-          fi
-
-          if [ ! -x "$PY" ]; then
-            echo "ERROR: Python venv not found at $PY"
-            exit 1
-          fi
-
-          cd "$APP_DIR"
-
-          # Get instance ID and read email filter tag if present
-          INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
-          echo "Instance ID: $INSTANCE_ID"
-
-          # Check for BatchEmailFilter tag
-          BATCH_EMAIL=$(aws ec2 describe-tags \
-            --region "$REGION" \
-            --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=BatchEmailFilter" \
-            --query 'Tags[0].Value' \
-            --output text 2>/dev/null || echo "None")
-
-          if [ "$BATCH_EMAIL" != "None" ] && [ -n "$BATCH_EMAIL" ]; then
-            echo "Email filter detected: $BATCH_EMAIL"
-            export BATCH_EMAIL_FILTER="$BATCH_EMAIL"
-          else
-            echo "No email filter set - processing all users"
-            unset BATCH_EMAIL_FILTER
-          fi
-
-          echo "Fetching secrets from Secrets Manager..."
-          SECRETS_JSON="$(aws secretsmanager get-secret-value \
-            --secret-id "$APP_SECRETS_ARN" \
-            --region "$REGION" \
-            --query SecretString \
-            --output text)"
-
-          echo "Writing shell-safe env to $ENV_FILE ..."
-          ENV_FILE="$ENV_FILE" SECRETS_JSON="$SECRETS_JSON" python3 - <<'PY'
-          import json, os, shlex
-          from pathlib import Path
-
-          env_file = Path(os.environ["ENV_FILE"])
-          secrets = json.loads(os.environ["SECRETS_JSON"])
-
-          lines = []
-          for k, v in secrets.items():
-              lines.append(f"{k}={shlex.quote(str(v))}")
-
-          env_file.write_text("\n".join(lines) + "\n")
-          PY
-
-          chmod 600 "$ENV_FILE"
-
-          set -a
-          # shellcheck disable=SC1090
-          source "$ENV_FILE"
-          set +a
-
-          # Quick sanity check: show DB target (password redacted by SQLAlchemy URL repr)
-          echo "Verifying SQLAlchemy engine target..."
-          "$PY" - <<'PY'
-          from database import engine
-          print("engine.url =", engine.url)
-          PY
-
-          echo "Running batch_generate.py..."
-          "$PY" batch_generate.py
-
-          echo "Batch job completed successfully at $(date -u) (UTC)"
-          echo "================================================"
-
-          echo "Shutting down instance in 5 minutes..."
-          sleep 300
-          sudo shutdown -h now
-          RUNEOF
-
-          chmod +x /app/batch/run-batch.sh
+          # Ensure the script in the artifact is executable
+          chmod +x /opt/motiv8-be/run-batch-job.sh
 
           # --------------------------------------------------------------------
-          # 3) systemd oneshot service to run the batch script
+          # 2) Boot-time prep: ensure /app/batch/run-batch.sh always points at artifact
+          #    IMPORTANT: UserData does NOT rerun on stop/start, so this must run each boot.
           # --------------------------------------------------------------------
-          cat > /etc/systemd/system/motiv8-batch.service << 'SVCEOF'
+          cat > /etc/systemd/system/motiv8-batch-boot.service << 'SVCEOF'
           [Unit]
-          Description=motiv8me Batch Job
+          Description=motiv8me batch: ensure runner symlink exists on every boot
           After=network-online.target
           Wants=network-online.target
 
           [Service]
           Type=oneshot
+          RemainAfterExit=yes
+          ExecStart=/bin/bash -lc 'set -euo pipefail; \
+            mkdir -p /app/batch; \
+            if [ -f /opt/motiv8-be/run-batch-job.sh ]; then \
+              chmod +x /opt/motiv8-be/run-batch-job.sh; \
+              ln -sf /opt/motiv8-be/run-batch-job.sh /app/batch/run-batch.sh; \
+            else \
+              echo "ERROR: /opt/motiv8-be/run-batch-job.sh missing"; \
+              exit 1; \
+            fi; \
+            ls -la /app/batch/run-batch.sh'
+          SVCEOF
+
+          # Enable + run boot-prep now (so current boot has correct symlink too)
+          systemctl daemon-reload
+          systemctl enable motiv8-batch-boot.service
+          systemctl start motiv8-batch-boot.service
+
+          # --------------------------------------------------------------------
+          # 3) systemd oneshot service to run the batch script
+          #    Require boot-prep so it always uses the correct runner.
+          # --------------------------------------------------------------------
+          cat > /etc/systemd/system/motiv8-batch.service << 'SVCEOF'
+          [Unit]
+          Description=motiv8me Batch Job
+          After=network-online.target motiv8-batch-boot.service
+          Wants=network-online.target
+          Requires=motiv8-batch-boot.service
+
+          [Service]
+          Type=oneshot
+          Environment="APP_SECRETS_ARN=${AppSecretsArn}"
+          Environment="AWS_REGION=${AWS::Region}"
           ExecStart=/app/batch/run-batch.sh
 
           [Install]
@@ -704,6 +636,7 @@ Resources:
           systemctl enable motiv8-batch.service
 
           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BatchInstance --region ${AWS::Region}
+
 
   # ==========================================================
   # Lambda Function for Starting Batch Instance
