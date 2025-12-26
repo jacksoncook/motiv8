@@ -525,7 +525,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance:
+  BatchInstance2:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -635,7 +635,7 @@ Resources:
           systemctl daemon-reload
           systemctl enable motiv8-batch.service
 
-          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BatchInstance --region ${AWS::Region}
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BatchInstance2 --region ${AWS::Region}
 
 
   # ==========================================================
@@ -651,7 +651,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance
+          BATCH_INSTANCE_ID: !Ref BatchInstance2
       Code:
         ZipFile: |
           import boto3
