@@ -168,7 +168,7 @@ class ImageGenerator:
                 height=768,                     # Portrait aspect ratio
                 num_inference_steps=num_inference_steps,
                 guidance_scale=guidance_scale,
-                seed=seed if seed is not None else -1,
+                seed=seed,                      # Pass seed directly (None = random)
                 scale=scale,                    # IP-Adapter influence
             )
 
