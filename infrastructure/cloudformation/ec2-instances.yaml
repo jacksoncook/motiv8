@@ -606,6 +606,25 @@ Resources:
 
           cd "$APP_DIR"
 
+          # Get instance ID and read email filter tag if present
+          INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+          echo "Instance ID: $INSTANCE_ID"
+
+          # Check for BatchEmailFilter tag
+          BATCH_EMAIL=$(aws ec2 describe-tags \
+            --region "$REGION" \
+            --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=BatchEmailFilter" \
+            --query 'Tags[0].Value' \
+            --output text 2>/dev/null || echo "None")
+
+          if [ "$BATCH_EMAIL" != "None" ] && [ -n "$BATCH_EMAIL" ]; then
+            echo "Email filter detected: $BATCH_EMAIL"
+            export BATCH_EMAIL_FILTER="$BATCH_EMAIL"
+          else
+            echo "No email filter set - processing all users"
+            unset BATCH_EMAIL_FILTER
+          fi
+
           echo "Fetching secrets from Secrets Manager..."
           SECRETS_JSON="$(aws secretsmanager get-secret-value \
             --secret-id "$APP_SECRETS_ARN" \
@@ -695,12 +714,50 @@ Resources:
         ZipFile: |
           import boto3
           import os
+          import json
+
           ec2 = boto3.client('ec2')
+
           def lambda_handler(event, context):
               instance_id = os.environ['BATCH_INSTANCE_ID']
+
+              # Extract optional email parameter from event
+              email = None
+              if 'email' in event:
+                  email = event['email']
+              elif 'body' in event:
+                  # Support API Gateway integration
+                  try:
+                      body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
+                      email = body.get('email')
+                  except:
+                      pass
+
               print(f'Starting batch instance: {instance_id}')
+              if email:
+                  print(f'Setting email filter tag: {email}')
+                  # Set the email tag BEFORE starting the instance to avoid race condition
+                  ec2.create_tags(
+                      Resources=[instance_id],
+                      Tags=[{'Key': 'BatchEmailFilter', 'Value': email}]
+                  )
+              else:
+                  # Remove any existing email filter tag
+                  try:
+                      ec2.delete_tags(
+                          Resources=[instance_id],
+                          Tags=[{'Key': 'BatchEmailFilter'}]
+                      )
+                  except:
+                      pass  # Tag might not exist, that's fine
+
+              # Start the instance after setting the tag
               ec2.start_instances(InstanceIds=[instance_id])
-              return {'statusCode': 200, 'body': f'Started instance {instance_id}'}
+
+              return {
+                  'statusCode': 200,
+                  'body': f'Started instance {instance_id}' + (f' with email filter: {email}' if email else '')
+              }
 
   DailyBatchRule:
     Type: AWS::Events::Rule

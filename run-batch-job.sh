@@ -55,6 +55,25 @@ fi
 
 cd "$APP_DIR"
 
+# Get instance ID and read email filter tag if present
+INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+echo "Instance ID: $INSTANCE_ID"
+
+# Check for BatchEmailFilter tag
+BATCH_EMAIL=$(aws ec2 describe-tags \
+  --region "$REGION" \
+  --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=BatchEmailFilter" \
+  --query 'Tags[0].Value' \
+  --output text 2>/dev/null || echo "None")
+
+if [ "$BATCH_EMAIL" != "None" ] && [ -n "$BATCH_EMAIL" ]; then
+  echo "Email filter detected: $BATCH_EMAIL"
+  export BATCH_EMAIL_FILTER="$BATCH_EMAIL"
+else
+  echo "No email filter set - processing all users"
+  unset BATCH_EMAIL_FILTER
+fi
+
 # Fetch secrets fresh each run (so no stale DB config can linger)
 if [ -z "$APP_SECRETS_ARN" ]; then
   echo "ERROR: APP_SECRETS_ARN is not set."

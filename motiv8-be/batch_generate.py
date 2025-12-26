@@ -230,6 +230,15 @@ def main():
     logger.info("Starting daily motivation batch job")
     logger.info("=" * 80)
 
+    # Check for email filter from environment
+    email_filter = os.environ.get('BATCH_EMAIL_FILTER')
+    if email_filter:
+        print(f"EMAIL FILTER ACTIVE: {email_filter}", flush=True)
+        logger.info(f"EMAIL FILTER ACTIVE: {email_filter}")
+    else:
+        print("No email filter - processing all eligible users", flush=True)
+        logger.info("No email filter - processing all eligible users")
+
     # Get current day
     today = get_current_day()
     print(f"Today is: {today}", flush=True)
@@ -241,18 +250,28 @@ def main():
     try:
         # Query users who have today as a workout day and have a selfie
         # Note: We now allow users without embeddings (will extract face first)
-        users = db.query(User).filter(
-            User.selfie_filename.isnot(None)
-        ).all()
+        query = db.query(User).filter(User.selfie_filename.isnot(None))
 
-        # Filter users who have today marked as workout day
-        workout_users = [
-            user for user in users
-            if user.workout_days and user.workout_days.get(today, False)
-        ]
+        # Apply email filter if provided
+        if email_filter:
+            query = query.filter(User.email == email_filter)
 
-        print(f"Found {len(workout_users)} users with {today} as workout day", flush=True)
-        logger.info(f"Found {len(workout_users)} users with {today} as workout day")
+        users = query.all()
+
+        # Filter users who have today marked as workout day (skip this if email filter is active)
+        if email_filter:
+            # When filtering by email, process that user regardless of workout day
+            workout_users = users
+            print(f"Found {len(workout_users)} user(s) matching email filter", flush=True)
+            logger.info(f"Found {len(workout_users)} user(s) matching email filter")
+        else:
+            # Normal operation: only users with today as workout day
+            workout_users = [
+                user for user in users
+                if user.workout_days and user.workout_days.get(today, False)
+            ]
+            print(f"Found {len(workout_users)} users with {today} as workout day", flush=True)
+            logger.info(f"Found {len(workout_users)} users with {today} as workout day")
 
         if not workout_users:
             print("No users to process today. Exiting.", flush=True)

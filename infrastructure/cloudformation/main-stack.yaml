@@ -426,6 +426,8 @@ Resources:
                   - 'ec2:StopInstances'
                   - 'ec2:DescribeInstances'
                   - 'ec2:DescribeInstanceStatus'
+                  - 'ec2:CreateTags'
+                  - 'ec2:DeleteTags'
                 Resource: '*'
 
 Outputs:
