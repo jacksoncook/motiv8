@@ -5,6 +5,7 @@ import Header from './components/Header'
 import AuthCallback from './pages/AuthCallback'
 import Login from './pages/Login'
 import ImageUpload from './components/ImageUpload'
+import DailyMotivation from './components/DailyMotivation'
 import WorkoutDays from './components/WorkoutDays'
 
 function AppContent() {
@@ -29,6 +30,7 @@ function AppContent() {
               <Header />
               <div className="main-content">
                 <ImageUpload />
+                <DailyMotivation />
                 <WorkoutDays />
               </div>
             </div>

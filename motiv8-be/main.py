@@ -8,7 +8,7 @@ import uvicorn
 import os
 import shutil
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 import logging
 from authlib.integrations.starlette_client import OAuth
 from sqlalchemy.orm import Session
@@ -333,6 +333,45 @@ async def get_generated_image(filename: str):
     except Exception as e:
         logger.error(f"Error serving generated image: {e}")
         raise HTTPException(status_code=500, detail="Error serving image")
+
+
+@app.get("/api/daily-motivation")
+async def get_daily_motivation(
+    date_str: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get the generated image for a specific date for the current user
+
+    Args:
+        date_str: Date in YYYY-MM-DD format
+
+    Returns:
+        JSON with s3_key and generation timestamp if found, otherwise 404
+    """
+    try:
+        # Parse date string
+        query_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    # Query for generated images for this user and date, ordered by timestamp descending
+    generated_image = db.query(GeneratedImage).filter(
+        GeneratedImage.user_id == current_user.id,
+        GeneratedImage.generation_date == query_date
+    ).order_by(GeneratedImage.generated_at_millis.desc()).first()
+
+    if not generated_image:
+        raise HTTPException(status_code=404, detail="No generated image found for this date")
+
+    # Extract filename from s3_key (format: "generated/filename.png")
+    filename = generated_image.s3_key.split('/')[-1] if '/' in generated_image.s3_key else generated_image.s3_key
+
+    return {
+        "filename": filename,
+        "s3_key": generated_image.s3_key,
+        "generated_at_millis": generated_image.generated_at_millis
+    }
 
 
 # ============================================================================
