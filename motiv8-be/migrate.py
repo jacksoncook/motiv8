@@ -52,6 +52,13 @@ def migrate_database():
         else:
             print('✓ workout_days column already exists')
 
+        if 'gender' not in column_names:
+            print('Adding gender column...')
+            cursor.execute('ALTER TABLE users ADD COLUMN gender VARCHAR')
+            print('✓ Added gender column')
+        else:
+            print('✓ gender column already exists')
+
         conn.commit()
         conn.close()
         print('Database migration completed successfully!')

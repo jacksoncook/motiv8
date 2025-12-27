@@ -83,12 +83,14 @@ class FaceIDExtractor:
             face = faces[0]
             embedding = face.normed_embedding  # 512-dimensional embedding
             bbox = face.bbox.tolist()  # [x1, y1, x2, y2]
+            gender = "male" if face.gender == 1 else "female"  # insightface returns 0=female, 1=male
 
             return {
                 "success": True,
                 "embedding": embedding,
                 "num_faces": len(faces),
                 "bbox": bbox,
+                "gender": gender,
                 "embedding_shape": embedding.shape,
                 "embedding_dtype": str(embedding.dtype)
             }

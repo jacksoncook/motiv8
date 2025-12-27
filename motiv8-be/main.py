@@ -210,7 +210,7 @@ class GenerateRequest(BaseModel):
     """Request body for image generation"""
     embedding_filename: str
     image_filename: Optional[str] = None  # Original uploaded image filename
-    prompt: str = "professional portrait photo of a person with extremely muscular bodybuilder physique, highly detailed, 8k, photorealistic"
+    prompt: str = "professional full body photo of a person with extremely muscular bodybuilder physique, highly detailed, 8k, photorealistic"
     negative_prompt: str = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality"
     num_inference_steps: int = 30
     guidance_scale: float = 7.5
@@ -456,6 +456,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "has_selfie": current_user.selfie_filename is not None,
         "selfie_filename": current_user.selfie_filename,
         "selfie_embedding_filename": current_user.selfie_embedding_filename,
+        "gender": current_user.gender,
         "workout_days": workout_days
     }
 

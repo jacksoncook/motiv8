@@ -19,6 +19,7 @@ class User(Base):
     # Selfie fields - one selfie per user
     selfie_filename = Column(String, nullable=True)  # Original uploaded image filename
     selfie_embedding_filename = Column(String, nullable=True)  # Face embedding filename
+    gender = Column(String, nullable=True)  # Detected gender: "male" or "female"
 
     # Workout days - JSON object with days of week
     # Format: {"monday": true, "tuesday": false, ...}

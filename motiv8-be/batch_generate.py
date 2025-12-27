@@ -99,11 +99,12 @@ def extract_face_for_user(user: User, extractor, db):
         embeddings_storage.save_from_file(embedding_filename, str(temp_embedding_path))
         logger.info(f"Embedding uploaded to storage: {embedding_filename}")
 
-        # Update user's embedding filename in database
+        # Update user's embedding filename and gender in database
         user.selfie_embedding_filename = embedding_filename
+        user.gender = result.get("gender", "male")  # Default to male if not detected
         db.commit()
         db.refresh(user)
-        logger.info(f"Updated user {user.email} embedding filename in database")
+        logger.info(f"Updated user {user.email} embedding filename and gender ({user.gender}) in database")
 
         # Clean up temp files if using S3
         if USE_S3:
@@ -154,11 +155,15 @@ def generate_for_user(user: User, generator, db):
         else:
             logger.warning(f"Image not found for {user.email}: {user.selfie_filename}")
 
+        # Create gender-specific prompt
+        gender_term = "female" if user.gender == "female" else "male"
+        prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, highly detailed, 8k, photorealistic"
+
         # Generate image using local temp files
         result = generator.generate_image(
             embedding_path=str(temp_embedding_path),
             image_path=str(temp_image_path) if temp_image_path else None,
-            prompt="professional portrait photo of a person with extremely muscular bodybuilder physique, highly detailed, 8k, photorealistic",
+            prompt=prompt,
             negative_prompt="blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality",
             num_inference_steps=30,
             guidance_scale=7.5,
