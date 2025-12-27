@@ -36,10 +36,13 @@ function DailyMotivation() {
       setError(null);
 
       try {
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(
           `${API_BASE_URL}/api/daily-motivation?date_str=${selectedDate}`,
           {
-            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
           }
         );
 
@@ -105,7 +108,7 @@ function DailyMotivation() {
         {!loading && motivationData && (
           <div className="motivation-image-container">
             <img
-              src={`${API_BASE_URL}/api/generated/${motivationData.filename}`}
+              src={`${API_BASE_URL}/api/generated/${motivationData.filename}?token=${localStorage.getItem('auth_token')}`}
               alt="Daily Motivation"
               className="motivation-image"
             />
