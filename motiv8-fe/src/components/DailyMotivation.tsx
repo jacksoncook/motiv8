@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './DailyMotivation.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL =
+  (import.meta as any).env?.VITE_API_BASE_URL || "https://api.motiv8me.io";
 
 interface DailyMotivationData {
   filename: string;
@@ -10,10 +11,18 @@ interface DailyMotivationData {
   generated_at_millis: number;
 }
 
+// Helper function to get local date in YYYY-MM-DD format
+const getLocalDateString = (date: Date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 function DailyMotivation() {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
+    getLocalDateString()
   );
   const [motivationData, setMotivationData] = useState<DailyMotivationData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,7 +37,7 @@ function DailyMotivation() {
 
       try {
         const response = await fetch(
-          `${API_URL}/api/daily-motivation?date_str=${selectedDate}`,
+          `${API_BASE_URL}/api/daily-motivation?date_str=${selectedDate}`,
           {
             credentials: 'include',
           }
@@ -71,7 +80,7 @@ function DailyMotivation() {
             id="motivation-date"
             value={selectedDate}
             onChange={handleDateChange}
-            max={new Date().toISOString().split('T')[0]}
+            max={getLocalDateString()}
           />
         </div>
 
@@ -96,7 +105,7 @@ function DailyMotivation() {
         {!loading && motivationData && (
           <div className="motivation-image-container">
             <img
-              src={`${API_URL}/api/generated/${motivationData.filename}`}
+              src={`${API_BASE_URL}/api/generated/${motivationData.filename}`}
               alt="Daily Motivation"
               className="motivation-image"
             />
