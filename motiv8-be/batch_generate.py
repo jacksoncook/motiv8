@@ -62,10 +62,14 @@ def extract_face_for_user(user: User, extractor, db):
             logger.warning(f"User {user.email} has no selfie, skipping")
             return False
 
-        # Check if embedding already exists
-        if user.selfie_embedding_filename and embeddings_storage.exists(user.selfie_embedding_filename):
-            logger.info(f"Embedding already exists for {user.email}, skipping extraction")
+        # Check if embedding already exists AND gender is detected
+        # Force re-extraction if gender is not set to capture gender information
+        if user.selfie_embedding_filename and embeddings_storage.exists(user.selfie_embedding_filename) and user.gender:
+            logger.info(f"Embedding already exists for {user.email} with gender detected, skipping extraction")
             return True
+
+        if not user.gender:
+            logger.info(f"Re-extracting face for {user.email} to detect gender")
 
         # Check if image exists in storage
         if not uploads_storage.exists(user.selfie_filename):
