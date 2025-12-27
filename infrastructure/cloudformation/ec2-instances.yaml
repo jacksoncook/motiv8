@@ -426,6 +426,11 @@ Resources:
 
             chmod 600 /etc/motiv8-webapp.env
 
+            # Run database migrations before starting the app
+            echo "Running database migrations..."
+            source venv/bin/activate
+            python3 migrate.py || { echo "Migration failed"; exit 1; }
+
             cat > /etc/systemd/system/motiv8-webapp.service << 'SVCEOF'
             [Unit]
             Description=motiv8me Web API
