@@ -40,10 +40,17 @@ PUBLIC_API_BASE = os.getenv("PUBLIC_API_BASE", "http://localhost:8000")
 
 app = FastAPI(title="motiv8me API", version="1.0.0")
 
-# Configure CORS
+# Configure CORS - allow specific origins when using credentials
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # Local development
+    "http://localhost:3000",  # Alternative local port
+    "https://motiv8me.io",    # Production frontend
+    "https://www.motiv8me.io" # Production frontend with www
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
