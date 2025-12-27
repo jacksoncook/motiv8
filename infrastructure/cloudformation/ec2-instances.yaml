@@ -525,7 +525,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance:
+  BatchInstance2:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -551,21 +551,41 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -xe
-          exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+          exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
+          # --------------------------------------------------------------------
+          # Metadata
+          # --------------------------------------------------------------------
           # Deploy version: ${BatchDeployVersion}
           export BATCH_DEPLOY_VERSION="${BatchDeployVersion}"
           echo "Batch Deploy Version: $BATCH_DEPLOY_VERSION"
 
+          # --------------------------------------------------------------------
+          # Base packages
+          # --------------------------------------------------------------------
           yum update -y
-          yum install -y awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc gcc-c++ make
+          yum install -y \
+            awscli \
+            aws-cfn-bootstrap \
+            git \
+            python3 \
+            python3-pip \
+            python3-devel \
+            gcc \
+            gcc-c++ \
+            make
+
           yum install -y mesa-libGL glib2 libSM libXrender libXext
 
           # --------------------------------------------------------------------
-          # 1) ONE-TIME provisioning at boot: code + venv in /opt/motiv8-be
+          # 1) ONE-TIME provisioning at first boot: code + venv in /opt/motiv8-be
           # --------------------------------------------------------------------
           mkdir -p /opt
-          aws s3 cp s3://${UploadsBucket}/deployment/motiv8-be.tar.gz /tmp/motiv8-be.tar.gz --region ${AWS::Region}
+
+          aws s3 cp \
+            s3://${UploadsBucket}/deployment/motiv8-be.tar.gz \
+            /tmp/motiv8-be.tar.gz \
+            --region ${AWS::Region}
 
           rm -rf /opt/motiv8-be
           tar -xzf /tmp/motiv8-be.tar.gz -C /opt
@@ -582,64 +602,65 @@ Resources:
           chmod +x /opt/motiv8-be/run-batch-job.sh
 
           # --------------------------------------------------------------------
-          # 2) Boot-time prep: ensure /app/batch/run-batch.sh always points at artifact
-          #    IMPORTANT: This service runs each boot. We also start the batch job after prep.
-          # --------------------------------------------------------------------
-          cat > /etc/systemd/system/motiv8-batch-boot.service << 'SVCEOF'
-          [Unit]
-          Description=motiv8me batch: ensure runner symlink exists on every boot
-          After=network-online.target
-          Wants=network-online.target
-
-          [Service]
-          Type=oneshot
-          RemainAfterExit=yes
-          ExecStart=/bin/bash -lc 'set -euo pipefail; \
-            mkdir -p /app/batch; \
-            if [ -f /opt/motiv8-be/run-batch-job.sh ]; then \
-              chmod +x /opt/motiv8-be/run-batch-job.sh; \
-              ln -sf /opt/motiv8-be/run-batch-job.sh /app/batch/run-batch.sh; \
-            else \
-              echo "ERROR: /opt/motiv8-be/run-batch-job.sh missing"; \
-              exit 1; \
-            fi; \
-            ls -la /app/batch/run-batch.sh'
-          ExecStartPost=/bin/systemctl start motiv8-batch.service
-          SVCEOF
-
-          # --------------------------------------------------------------------
-          # 3) systemd oneshot service to run the batch script
-          #    Require boot-prep so it always uses the correct runner.
+          # 2) SINGLE systemd oneshot service
+          #    - does boot prep every time
+          #    - runs batch job
+          #    - no dependency cycles
           # --------------------------------------------------------------------
           cat > /etc/systemd/system/motiv8-batch.service << 'SVCEOF'
           [Unit]
           Description=motiv8me Batch Job
-          After=network-online.target motiv8-batch-boot.service
-          Wants=network-online.target
-          Requires=motiv8-batch-boot.service
+          After=network-online.target cloud-final.service
+          Wants=network-online.target cloud-final.service
 
           [Service]
           Type=oneshot
           Environment="APP_SECRETS_ARN=${AppSecretsArn}"
           Environment="AWS_REGION=${AWS::Region}"
-          ExecStart=/app/batch/run-batch.sh
+          Environment="PYTHONUNBUFFERED=1"
+
+          # --- ensure runner is always correct ---
+          ExecStartPre=/bin/bash -lc '\
+            set -euo pipefail; \
+            mkdir -p /app/batch; \
+            if [ ! -f /opt/motiv8-be/run-batch-job.sh ]; then \
+              echo "ERROR: /opt/motiv8-be/run-batch-job.sh missing"; \
+              exit 1; \
+            fi; \
+            chmod +x /opt/motiv8-be/run-batch-job.sh; \
+            ln -sf /opt/motiv8-be/run-batch-job.sh /app/batch/run-batch.sh; \
+            ls -la /app/batch/run-batch.sh \
+          '
+
+          # --- run batch ---
+          ExecStart=/bin/bash -lc '/app/batch/run-batch.sh'
+
+          # --- logging + long-running safety ---
+          StandardOutput=journal+console
+          StandardError=journal+console
+          TimeoutStartSec=0
+          KillMode=process
 
           [Install]
           WantedBy=multi-user.target
           SVCEOF
 
           # --------------------------------------------------------------------
-          # Enable units and run boot-prep now (which will then start the batch)
-          # NOTE: Order matters: motiv8-batch.service must exist before boot service tries to start it.
+          # 3) Enable and run batch job on this boot
           # --------------------------------------------------------------------
           systemctl daemon-reload
-          systemctl enable motiv8-batch-boot.service
           systemctl enable motiv8-batch.service
+          systemctl start motiv8-batch.service
 
-          # Run boot-prep now so the current boot also starts the batch job
-          systemctl start motiv8-batch-boot.service
+          # --------------------------------------------------------------------
+          # 4) CloudFormation signal
+          # --------------------------------------------------------------------
+          /opt/aws/bin/cfn-signal \
+            -e $? \
+            --stack ${AWS::StackName} \
+            --resource BatchInstance2 \
+            --region ${AWS::Region}
 
-          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BatchInstance --region ${AWS::Region}
 
   # ==========================================================
   # Lambda Function for Starting Batch Instance
@@ -654,7 +675,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance
+          BATCH_INSTANCE_ID: !Ref BatchInstance2
       Code:
         ZipFile: |
           import boto3
@@ -900,4 +921,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance
+    Value: !Ref BatchInstance2
