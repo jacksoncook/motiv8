@@ -4,6 +4,8 @@
   background-color: #faf9ff;
   border: 2px solid #ddd6fe;
   border-radius: 12px;
+  display: flex;
+  flex-direction: column;
 }
 
 .workout-days-container h2 {

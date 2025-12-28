@@ -203,7 +203,7 @@ def generate_for_user(user: User, generator, db):
         generated_image = GeneratedImage(
             user_id=user.id,
             s3_key=s3_key,
-            generation_date=date.today(),
+            generation_date=datetime.utcnow().date(),
             generated_at_millis=generation_time_millis
         )
         db.add(generated_image)
