@@ -14,8 +14,8 @@
   margin: 0 auto;
   padding: 2rem;
   width: 100%;
-  align-items: stretch;
-  grid-auto-rows: 1fr;
+  align-items: start;
+  --card-height: 480px;
 }
 
 @media (max-width: 768px) {
