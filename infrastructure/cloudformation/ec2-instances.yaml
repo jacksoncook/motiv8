@@ -553,6 +553,8 @@ Resources:
           Value: 'true'
         - Key: Version
           Value: !Ref BatchDeployVersion
+        - Key: BatchEmailFilter
+          Value: 'jacksoncook73@gmail.com'
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash -xe
@@ -623,6 +625,8 @@ Resources:
           Environment="APP_SECRETS_ARN=${AppSecretsArn}"
           Environment="AWS_REGION=${AWS::Region}"
           Environment="PYTHONUNBUFFERED=1"
+          Environment="UPLOADS_BUCKET=${UploadsBucket}"
+          Environment="BATCH_DEPLOY_VERSION=${BatchDeployVersion}"
 
           # --- ensure runner is always correct ---
           ExecStartPre=/bin/bash -lc '\
