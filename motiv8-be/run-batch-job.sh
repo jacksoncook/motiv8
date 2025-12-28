@@ -25,6 +25,10 @@ APP_DIR="/opt/motiv8-be"
 PY="${APP_DIR}/venv/bin/python"
 DEPLOY_VERSION_FILE="${APP_DIR}/.deploy-version"
 TARGET_VERSION="${BATCH_DEPLOY_VERSION:-}"
+CURRENT_VERSION=""
+if [ -f "$DEPLOY_VERSION_FILE" ]; then
+  CURRENT_VERSION="$(cat "$DEPLOY_VERSION_FILE" || true)"
+fi
 UPLOADS_BUCKET="${UPLOADS_BUCKET:-}"
 
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -54,9 +58,8 @@ cd "$APP_DIR"
 # Refresh code ONLY when BATCH_DEPLOY_VERSION changes
 # (UserData does not rerun on stop/start, so this is how we pick up new deploys.)
 # ------------------------------------------------------------------------------
-
 if [ -n "$TARGET_VERSION" ] && [ "$CURRENT_VERSION" != "$TARGET_VERSION" ]; then
-  echo "Deploy version changed ($CURRENT_VERSION -> $TARGET_VERSION). Updating /opt/motiv8-be from S3..."
+  echo "Deploy version changed (${CURRENT_VERSION:-<none>} -> $TARGET_VERSION). Updating /opt/motiv8-be from S3..."
 
   : "${UPLOADS_BUCKET:?UPLOADS_BUCKET must be set (from systemd Environment=)}"
 
@@ -65,25 +68,36 @@ if [ -n "$TARGET_VERSION" ] && [ "$CURRENT_VERSION" != "$TARGET_VERSION" ]; then
     /tmp/motiv8-be.tar.gz \
     --region "$REGION"
 
-  # Extract into a fresh directory, then swap atomically.
+  # Extract into staging root. Tar contains top-level motiv8-be/, so extract to /opt.
   rm -rf /opt/motiv8-be.new
   mkdir -p /opt/motiv8-be.new
-  tar -xzf /tmp/motiv8-be.tar.gz -C /opt
+  tar -xzf /tmp/motiv8-be.tar.gz -C /opt/motiv8-be.new
   rm -f /tmp/motiv8-be.tar.gz
 
-  # IMPORTANT:
-  # Your tar currently extracts to /opt/motiv8-be (based on your UserData).
-  # So ensure venv persists by moving the existing venv over if needed.
-  if [ -d "${APP_DIR}/venv" ] && [ ! -d "/opt/motiv8-be/venv" ]; then
-    echo "Preserving existing venv..."
-    mv "${APP_DIR}/venv" "/opt/motiv8-be/venv"
+  # After extraction, staging path is /opt/motiv8-be.new/motiv8-be
+  STAGED="/opt/motiv8-be.new/motiv8-be"
+  if [ ! -d "$STAGED" ]; then
+    echo "ERROR: expected staged dir $STAGED not found after untar"
+    exit 1
   fi
 
-  echo "$TARGET_VERSION" > "/opt/motiv8-be/.deploy-version"
+  # Preserve existing venv into staged tree if artifact doesn't include one (it doesn't)
+  if [ -d "${APP_DIR}/venv" ] && [ ! -d "${STAGED}/venv" ]; then
+    echo "Preserving existing venv into staged tree..."
+    cp -a "${APP_DIR}/venv" "${STAGED}/venv"
+  fi
+
+  echo "$TARGET_VERSION" > "${STAGED}/.deploy-version"
+
+  echo "Swapping in updated code..."
+  mv /opt/motiv8-be "/opt/motiv8-be.old.$(date +%s)" || true
+  mv "$STAGED" /opt/motiv8-be
+  rm -rf /opt/motiv8-be.new
+
   echo "Update complete; re-execing from new code..."
   exec /bin/bash "/opt/motiv8-be/run-batch-job.sh"
 else
-  echo "Deploy version unchanged ($CURRENT_VERSION). Using existing code."
+  echo "Deploy version unchanged (${CURRENT_VERSION:-<none>}). Using existing code."
 fi
 
 # --- Read BatchEmailFilter from EC2 tags if present ---
