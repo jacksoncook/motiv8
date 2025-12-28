@@ -53,7 +53,14 @@ def get_current_day():
 
 
 def extract_face_for_user(user: User, extractor, db):
-    """Extract face embedding for a user if not already done"""
+    """
+    Extract face embedding for a user if needed.
+
+    Returns:
+        "extracted" - new extraction was performed
+        "exists" - embedding already exists with gender, skipped extraction
+        False - extraction failed
+    """
     try:
         logger.info(f"Extracting face for user: {user.email}")
 
@@ -66,7 +73,7 @@ def extract_face_for_user(user: User, extractor, db):
         # Force re-extraction if gender is not set to capture gender information
         if user.selfie_embedding_filename and embeddings_storage.exists(user.selfie_embedding_filename) and user.gender:
             logger.info(f"Embedding already exists for {user.email} with gender detected, skipping extraction")
-            return True
+            return "exists"
 
         if not user.gender:
             logger.info(f"Re-extracting face for {user.email} to detect gender")
@@ -118,7 +125,7 @@ def extract_face_for_user(user: User, extractor, db):
                 os.remove(temp_embedding_path)
             logger.info("Cleaned up temporary files")
 
-        return True
+        return "extracted"
 
     except Exception as e:
         logger.error(f"Error extracting face for user {user.email}: {e}", exc_info=True)
@@ -307,19 +314,21 @@ def main():
             print(f"\n[{i}/{len(workout_users)}] Processing user: {user.email}", flush=True)
             logger.info(f"Processing user {i}/{len(workout_users)}: {user.email}")
 
-            # Extract face if not already done
-            if not user.selfie_embedding_filename or not embeddings_storage.exists(user.selfie_embedding_filename):
-                print(f"  → Extracting face embedding...", flush=True)
-                logger.info(f"Face embedding not found for {user.email}, extracting...")
-                if extract_face_for_user(user, extractor, db):
-                    extraction_count += 1
-                    print(f"  ✓ Face extraction successful", flush=True)
-                    logger.info(f"Face extraction successful for {user.email}")
-                else:
-                    print(f"  ✗ Face extraction failed, skipping", flush=True)
-                    logger.error(f"Face extraction failed for {user.email}, skipping image generation")
-                    failure_count += 1
-                    continue
+            # Extract face if needed (function handles all conditional logic)
+            print(f"  → Checking/extracting face embedding...", flush=True)
+            result = extract_face_for_user(user, extractor, db)
+
+            if result == False:
+                print(f"  ✗ Face extraction failed, skipping", flush=True)
+                logger.error(f"Face extraction failed for {user.email}, skipping image generation")
+                failure_count += 1
+                continue
+            elif result == "extracted":
+                extraction_count += 1
+                print(f"  ✓ Face extraction successful", flush=True)
+                logger.info(f"Face extraction successful for {user.email}")
+            elif result == "exists":
+                print(f"  ✓ Face embedding already exists", flush=True)
 
             # Generate motivational image
             print(f"  → Generating motivational image...", flush=True)
