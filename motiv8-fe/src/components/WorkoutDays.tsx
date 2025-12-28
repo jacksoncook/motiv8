@@ -72,7 +72,7 @@ function WorkoutDays() {
 
   return (
     <div className="workout-days-container">
-      <h2>Work out days</h2>
+      <h2>Workout days</h2>
 
       <div className="days-grid">
         {DAYS_OF_WEEK.map((day) => (

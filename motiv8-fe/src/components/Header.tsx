@@ -23,7 +23,7 @@ function Header() {
             </div>
           ) : (
             <button onClick={login} className="auth-button">
-              Login with Google
+              Login with google
             </button>
           )}
         </div>

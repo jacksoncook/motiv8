@@ -74,10 +74,10 @@ function DailyMotivation() {
   return (
     <div className="daily-motivation-container">
       <div className="daily-motivation-section">
-        <h2>Daily Motivation</h2>
+        <h2>Daily motivation</h2>
 
         <div className="date-selector">
-          <label htmlFor="motivation-date">Select Date:</label>
+          <label htmlFor="motivation-date">Select date:</label>
           <input
             type="date"
             id="motivation-date"
@@ -101,7 +101,7 @@ function DailyMotivation() {
 
         {!loading && !error && !motivationData && (
           <div className="rest-message">
-            <h3>Rest Up!</h3>
+            <h3>Rest up!</h3>
           </div>
         )}
 
@@ -109,7 +109,7 @@ function DailyMotivation() {
           <div className="motivation-image-container">
             <img
               src={`${API_BASE_URL}/api/generated/${motivationData.filename}?token=${localStorage.getItem('auth_token')}`}
-              alt="Daily Motivation"
+              alt="Daily motivation"
               className="motivation-image"
             />
             <div className="generated-timestamp">

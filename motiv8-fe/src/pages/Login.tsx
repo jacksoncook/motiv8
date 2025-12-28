@@ -12,7 +12,7 @@ function Login() {
           <h1 className="login-title">motiv8me</h1>
         </div>
         <button onClick={login} className="google-login-button">
-          Login with Google
+          Login with google
         </button>
       </div>
     </div>

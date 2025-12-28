@@ -179,7 +179,7 @@ function ImageUpload() {
     <div className="upload-container">
       {currentSelfieUrl && (
         <div className="current-selfie-section">
-          <h3>Your Selfie</h3>
+          <h3>Your selfie</h3>
           <div className="preview-section">
             <img src={currentSelfieUrl} alt="Your selfie" className="preview-image" />
           </div>
@@ -207,7 +207,7 @@ function ImageUpload() {
               disabled={!selectedFile || uploading}
               className="upload-button"
             >
-              {uploading ? 'Uploading...' : 'Update Selfie'}
+              {uploading ? 'Uploading...' : 'Update selfie'}
             </button>
           </div>
 
@@ -217,7 +217,7 @@ function ImageUpload() {
               disabled={generating}
               className="upload-button generate-button"
             >
-              {generating ? 'Generating Muscular Body Image...' : 'Generate Muscular Body Image'}
+              {generating ? 'Generating muscular body image...' : 'Generate muscular body image'}
             </button>
           )}
         </div>
@@ -225,7 +225,7 @@ function ImageUpload() {
 
       {!currentSelfieUrl && (
         <div className="current-selfie-section">
-          <h3>Your Selfie</h3>
+          <h3>Your selfie</h3>
           <div className="upload-section">
             <input
               type="file"
@@ -249,7 +249,7 @@ function ImageUpload() {
               disabled={!selectedFile || uploading}
               className="upload-button"
             >
-              {uploading ? 'Uploading...' : 'Upload Selfie'}
+              {uploading ? 'Uploading...' : 'Upload selfie'}
             </button>
           </div>
         </div>
@@ -263,13 +263,13 @@ function ImageUpload() {
 
       {uploadResult && (
         <div className="message success">
-          <h3>Selfie Uploaded Successfully!</h3>
+          <h3>Selfie uploaded successfully!</h3>
           {!isProduction && (
             <>
               <p>{uploadResult.message}</p>
               <p><strong>Original filename:</strong> {uploadResult.original_filename}</p>
               <p><strong>File size:</strong> {(uploadResult.size_bytes / 1024).toFixed(2)} KB</p>
-              <p className="info-text">✓ Face extraction will occur during the next batch processing run.</p>
+              <p className="info-text">Face extraction will occur during the next batch processing run.</p>
             </>
           )}
 
@@ -279,7 +279,7 @@ function ImageUpload() {
               disabled={generating}
               className="upload-button generate-button"
             >
-              {generating ? 'Generating Muscular Body Image...' : 'Generate Muscular Body Image'}
+              {generating ? 'Generating muscular body image...' : 'Generate muscular body image'}
             </button>
           )}
         </div>
@@ -287,7 +287,7 @@ function ImageUpload() {
 
       {generatedImageUrl && (
         <div className="message success">
-          <h3>Generated Image</h3>
+          <h3>Generated image</h3>
           <div className="preview-section">
             <img src={generatedImageUrl} alt="Generated" className="preview-image" />
           </div>
