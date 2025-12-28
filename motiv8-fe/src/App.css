@@ -14,8 +14,8 @@
   margin: 0 auto;
   padding: 2rem;
   width: 100%;
-  align-items: start;
-  grid-auto-rows: min-content;
+  align-items: stretch;
+  grid-auto-rows: 1fr;
 }
 
 @media (max-width: 768px) {
