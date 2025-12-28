@@ -23,6 +23,9 @@ LOG_FILE="/var/log/motiv8-batch.log"
 ENV_FILE="/etc/motiv8-batch.env"
 APP_DIR="/opt/motiv8-be"
 PY="${APP_DIR}/venv/bin/python"
+DEPLOY_VERSION_FILE="${APP_DIR}/.deploy-version"
+TARGET_VERSION="${BATCH_DEPLOY_VERSION:-}"
+UPLOADS_BUCKET="${UPLOADS_BUCKET:-}"
 
 mkdir -p "$(dirname "$LOG_FILE")"
 exec > >(tee -a "$LOG_FILE") 2>&1
@@ -51,9 +54,6 @@ cd "$APP_DIR"
 # Refresh code ONLY when BATCH_DEPLOY_VERSION changes
 # (UserData does not rerun on stop/start, so this is how we pick up new deploys.)
 # ------------------------------------------------------------------------------
-DEPLOY_VERSION_FILE="${APP_DIR}/.deploy-version"
-CURRENT_VERSION="$(cat "$DEPLOY_VERSION_FILE" 2>/dev/null || true)"
-TARGET_VERSION="${BATCH_DEPLOY_VERSION:-}"
 
 if [ -n "$TARGET_VERSION" ] && [ "$CURRENT_VERSION" != "$TARGET_VERSION" ]; then
   echo "Deploy version changed ($CURRENT_VERSION -> $TARGET_VERSION). Updating /opt/motiv8-be from S3..."
