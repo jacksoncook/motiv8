@@ -15,7 +15,6 @@
   border: 2px solid #ddd6fe;
   display: flex;
   flex-direction: column;
-  height: 100%;
 }
 
 .current-selfie-section h3 {
