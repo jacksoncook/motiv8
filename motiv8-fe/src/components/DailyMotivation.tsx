@@ -37,10 +37,8 @@ function DailyMotivation() {
 
       try {
         const token = localStorage.getItem('auth_token');
-        // Get timezone offset in minutes (negative for timezones west of UTC)
-        const timezoneOffset = new Date().getTimezoneOffset();
         const response = await fetch(
-          `${API_BASE_URL}/api/daily-motivation?date_str=${selectedDate}&timezone_offset=${timezoneOffset}`,
+          `${API_BASE_URL}/api/daily-motivation?date_str=${selectedDate}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,

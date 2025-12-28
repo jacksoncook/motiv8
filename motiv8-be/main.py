@@ -345,30 +345,22 @@ async def get_generated_image(filename: str):
 @app.get("/api/daily-motivation")
 async def get_daily_motivation(
     date_str: str,
-    timezone_offset: int = 0,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get the generated image for a specific date for the current user
 
     Args:
-        date_str: Date in YYYY-MM-DD format (in user's local timezone)
-        timezone_offset: User's timezone offset in minutes (e.g., -480 for PST, 0 for UTC)
+        date_str: Date in YYYY-MM-DD format (treated as logical day, not converted to UTC)
 
     Returns:
         JSON with s3_key and generation timestamp if found, otherwise 404
     """
     try:
-        # Parse the local date string
-        local_date = datetime.strptime(date_str, "%Y-%m-%d")
+        # Parse the date string and use it directly as the query date
+        query_date = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-
-    # Convert to UTC by adding the timezone offset
-    # timezone_offset is in minutes, negative for timezones west of UTC
-    # For example, PST is UTC-8, so offset is -480 minutes
-    utc_datetime = local_date - timedelta(minutes=timezone_offset)
-    query_date = utc_datetime.date()
 
     # Query for generated images for this user and date, ordered by timestamp descending
     generated_image = db.query(GeneratedImage).filter(
