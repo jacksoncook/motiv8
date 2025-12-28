@@ -1,8 +1,9 @@
 .upload-container {
   width: 100%;
-  height: var(--card-height, 480px);
+  height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .upload-container h2 {

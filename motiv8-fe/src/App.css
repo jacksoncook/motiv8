@@ -14,8 +14,11 @@
   margin: 0 auto;
   padding: 2rem;
   width: 100%;
-  align-items: start;
-  --card-height: 480px;
+  align-items: stretch;
+}
+
+.main-content > * {
+  min-height: 0;
 }
 
 @media (max-width: 768px) {

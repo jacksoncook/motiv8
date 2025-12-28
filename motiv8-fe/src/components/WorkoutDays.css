@@ -1,6 +1,6 @@
 .workout-days-container {
   width: 100%;
-  height: var(--card-height, 480px);
+  height: 100%;
   padding: 2rem;
   background-color: #faf9ff;
   border: 2px solid #ddd6fe;
@@ -8,6 +8,7 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  min-height: fit-content;
 }
 
 .workout-days-container h2 {

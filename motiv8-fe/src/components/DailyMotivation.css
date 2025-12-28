@@ -1,9 +1,10 @@
 .daily-motivation-container {
   width: 100%;
-  height: var(--card-height, 480px);
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  min-height: 0;
 }
 
 .daily-motivation-section {
