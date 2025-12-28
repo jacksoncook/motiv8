@@ -17,8 +17,6 @@
   border: 2px solid #ddd6fe;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
 }
 
 .current-selfie-section h3 {
@@ -69,14 +67,11 @@ input[type="file"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .preview-image {
   max-width: 100%;
-  max-height: 100%;
+  max-height: 400px;
   width: auto;
   height: auto;
   object-fit: contain;

@@ -7,23 +7,19 @@
 }
 
 .main-content {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 2rem;
   max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
   width: 100%;
-  align-items: stretch;
-}
-
-.main-content > * {
-  flex: 1;
-  min-width: 0;
+  align-items: start;
 }
 
 @media (max-width: 768px) {
   .main-content {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 }
 
