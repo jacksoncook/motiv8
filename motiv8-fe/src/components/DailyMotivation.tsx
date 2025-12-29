@@ -113,7 +113,7 @@ function DailyMotivation() {
               className="motivation-image"
             />
             <div className="generated-timestamp">
-              Generated: {new Date(motivationData.generated_at_millis).toLocaleString()}
+              {new Date(motivationData.generated_at_millis).toLocaleString()}
             </div>
           </div>
         )}

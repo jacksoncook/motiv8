@@ -52,9 +52,6 @@ function AntiMotivationMode() {
   return (
     <div className="anti-motivation-container">
       <h2>Anti-motivation mode</h2>
-      <p className="description">
-        When enabled, your image will show an unhealthy version of yourself as a warning instead of motivation.
-      </p>
 
       <div className="toggle-container">
         <label className="toggle-label">
