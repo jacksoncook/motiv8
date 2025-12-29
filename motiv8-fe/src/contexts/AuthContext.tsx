@@ -13,6 +13,7 @@ interface User {
   selfie_embedding_filename: string | null;
   gender: string | null;
   workout_days: Record<string, boolean>;
+  anti_motivation_mode: boolean;
 }
 
 interface AuthContextType {

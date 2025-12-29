@@ -2,7 +2,7 @@
 Database models
 """
 
-from sqlalchemy import Column, String, DateTime, JSON, ForeignKey, Date, BigInteger
+from sqlalchemy import Column, String, DateTime, JSON, ForeignKey, Date, BigInteger, Boolean
 from sqlalchemy.sql import func
 import uuid
 from database import Base
@@ -32,6 +32,9 @@ class User(Base):
         "saturday": False,
         "sunday": False
     })
+
+    # Anti-motivation mode - if True, generate demotivational images
+    anti_motivation_mode = Column(Boolean, nullable=False, default=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

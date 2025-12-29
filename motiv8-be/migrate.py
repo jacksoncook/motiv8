@@ -77,6 +77,13 @@ def migrate_sqlite():
         else:
             print('✓ gender column already exists')
 
+        if 'anti_motivation_mode' not in column_names:
+            print('Adding anti_motivation_mode column...')
+            cursor.execute('ALTER TABLE users ADD COLUMN anti_motivation_mode BOOLEAN DEFAULT 0 NOT NULL')
+            print('✓ Added anti_motivation_mode column')
+        else:
+            print('✓ anti_motivation_mode column already exists')
+
         conn.commit()
         conn.close()
         print('SQLite database migration completed successfully!')
@@ -146,6 +153,13 @@ def migrate_postgresql():
             print('✓ Added gender column')
         else:
             print('✓ gender column already exists')
+
+        if 'anti_motivation_mode' not in column_names:
+            print('Adding anti_motivation_mode column...')
+            cursor.execute('ALTER TABLE users ADD COLUMN anti_motivation_mode BOOLEAN DEFAULT false NOT NULL')
+            print('✓ Added anti_motivation_mode column')
+        else:
+            print('✓ anti_motivation_mode column already exists')
 
         conn.commit()
         cursor.close()

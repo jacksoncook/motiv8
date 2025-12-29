@@ -291,7 +291,7 @@ async def generate_image(
         logger.info(f"Image generated and uploaded to storage: {generated_filename}")
 
         # Send motivation email to user with local temp file
-        email_sent = send_motivation_email(current_user.email, str(temp_generated_path))
+        email_sent = send_motivation_email(current_user.email, str(temp_generated_path), current_user.anti_motivation_mode)
 
         # Clean up temp files if using S3
         if USE_S3:
@@ -449,7 +449,8 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "selfie_filename": current_user.selfie_filename,
         "selfie_embedding_filename": current_user.selfie_embedding_filename,
         "gender": current_user.gender,
-        "workout_days": workout_days
+        "workout_days": workout_days,
+        "anti_motivation_mode": current_user.anti_motivation_mode if current_user.anti_motivation_mode is not None else False
     }
 
 
@@ -497,6 +498,11 @@ class WorkoutDaysUpdate(BaseModel):
     workout_days: dict
 
 
+class AntiMotivationModeUpdate(BaseModel):
+    """Request body for updating anti-motivation mode"""
+    anti_motivation_mode: bool
+
+
 @app.put("/api/workout-days")
 async def update_workout_days(
     request: WorkoutDaysUpdate,
@@ -519,6 +525,30 @@ async def update_workout_days(
     except Exception as e:
         logger.error(f"Failed to update workout days: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update workout days: {str(e)}")
+
+
+@app.put("/api/anti-motivation-mode")
+async def update_anti_motivation_mode(
+    request: AntiMotivationModeUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update user's anti-motivation mode setting"""
+    try:
+        # Update anti-motivation mode
+        current_user.anti_motivation_mode = request.anti_motivation_mode
+        db.commit()
+        db.refresh(current_user)
+
+        logger.info(f"Updated anti-motivation mode to {request.anti_motivation_mode} for user {current_user.email}")
+
+        return {
+            "message": "Anti-motivation mode updated successfully",
+            "anti_motivation_mode": current_user.anti_motivation_mode
+        }
+    except Exception as e:
+        logger.error(f"Failed to update anti-motivation mode: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update anti-motivation mode: {str(e)}")
 
 
 if __name__ == "__main__":

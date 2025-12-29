@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import ImageUpload from './components/ImageUpload'
 import DailyMotivation from './components/DailyMotivation'
 import WorkoutDays from './components/WorkoutDays'
+import AntiMotivationMode from './components/AntiMotivationMode'
 
 function AppContent() {
   const { user, isLoading } = useAuth();
@@ -31,7 +32,10 @@ function AppContent() {
               <div className="main-content">
                 <ImageUpload />
                 <DailyMotivation />
-                <WorkoutDays />
+                <div className="settings-column">
+                  <WorkoutDays />
+                  <AntiMotivationMode />
+                </div>
               </div>
             </div>
           ) : (

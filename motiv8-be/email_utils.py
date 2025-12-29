@@ -23,13 +23,14 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
 
 
-def send_motivation_email(to_email: str, generated_image_path: str) -> bool:
+def send_motivation_email(to_email: str, generated_image_path: str, anti_motivation_mode: bool = False) -> bool:
     """
     Send a daily motivation email with the generated image
 
     Args:
         to_email: Recipient email address
         generated_image_path: Path to the generated image file
+        anti_motivation_mode: If True, use anti-motivation message
 
     Returns:
         True if email sent successfully, False otherwise
@@ -46,13 +47,16 @@ def send_motivation_email(to_email: str, generated_image_path: str) -> bool:
         msg['From'] = FROM_EMAIL
         msg['To'] = to_email
 
+        # Choose message based on anti-motivation mode
+        message_text = "This could be you" if anti_motivation_mode else "Get after it"
+
         # Create HTML body with embedded image
-        html_body = """
+        html_body = f"""
         <html>
           <head></head>
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
             <h1 style="color: #646cff;">Daily Motivation</h1>
-            <p style="font-size: 24px; font-weight: bold; margin: 30px 0;">Get after it</p>
+            <p style="font-size: 24px; font-weight: bold; margin: 30px 0;">{message_text}</p>
 
             <div style="margin: 30px 0;">
               <img src="cid:generated_image" style="max-width: 600px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);" alt="Your Motivational Image">

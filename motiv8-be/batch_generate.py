@@ -52,6 +52,30 @@ def get_current_day():
     return datetime.now().strftime("%A").lower()
 
 
+def get_prompts_for_user(user: User):
+    """
+    Get the appropriate prompt and negative prompt based on user settings.
+
+    Args:
+        user: User object with gender and anti_motivation_mode settings
+
+    Returns:
+        tuple: (prompt, negative_prompt)
+    """
+    gender_term = "female" if user.gender == "female" else "male"
+
+    if user.anti_motivation_mode:
+        # Anti-motivation prompt: obese, hairy, and unhealthy
+        prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, highly detailed, 8k, photorealistic"
+        negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic"
+    else:
+        # Regular motivation prompt: muscular and fit
+        prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, highly detailed, 8k, photorealistic"
+        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality"
+
+    return prompt, negative_prompt
+
+
 def extract_face_for_user(user: User, extractor, db):
     """
     Extract face embedding for a user if needed.
@@ -166,16 +190,15 @@ def generate_for_user(user: User, generator, db):
         else:
             logger.warning(f"Image not found for {user.email}: {user.selfie_filename}")
 
-        # Create gender-specific prompt
-        gender_term = "female" if user.gender == "female" else "male"
-        prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, highly detailed, 8k, photorealistic"
+        # Get prompts based on user settings
+        prompt, negative_prompt = get_prompts_for_user(user)
 
         # Generate image using local temp files
         result = generator.generate_image(
             embedding_path=str(temp_embedding_path),
             image_path=str(temp_image_path) if temp_image_path else None,
             prompt=prompt,
-            negative_prompt="blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality",
+            negative_prompt=negative_prompt,
             num_inference_steps=30,
             guidance_scale=7.5,
             seed=None,  # Random seed for variation
@@ -211,7 +234,7 @@ def generate_for_user(user: User, generator, db):
         logger.info(f"Generated image recorded in database: {generated_image.id}")
 
         # Send email with local temp file
-        email_sent = send_motivation_email(user.email, str(temp_generated_path))
+        email_sent = send_motivation_email(user.email, str(temp_generated_path), user.anti_motivation_mode)
         if email_sent:
             logger.info(f"Email sent successfully to {user.email}")
         else:
