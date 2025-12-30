@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance2:
+  BatchInstance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -718,7 +718,7 @@ Resources:
           /opt/aws/bin/cfn-signal \
             -e $? \
             --stack ${AWS::StackName} \
-            --resource BatchInstance2 \
+            --resource BatchInstance \
             --region ${AWS::Region}
 
 
@@ -735,7 +735,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance2
+          BATCH_INSTANCE_ID: !Ref BatchInstance
       Code:
         ZipFile: |
           import boto3
@@ -749,17 +749,26 @@ Resources:
 
               # Extract optional email parameter from event
               email = None
-              if 'email' in event:
+              if isinstance(event, dict) and 'email' in event:
                   email = event['email']
-              elif 'body' in event:
+              elif isinstance(event, dict) and 'body' in event:
                   # Support API Gateway integration
                   try:
                       body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
-                      email = body.get('email')
-                  except:
+                      if isinstance(body, dict):
+                          email = body.get('email')
+                  except Exception:
                       pass
 
               print(f'Starting batch instance: {instance_id}')
+
+              # Always set RunBatch=true BEFORE starting the instance to ensure boot-triggered services can gate on it
+              print('Setting RunBatch tag: true')
+              ec2.create_tags(
+                  Resources=[instance_id],
+                  Tags=[{'Key': 'RunBatch', 'Value': 'true'}]
+              )
+
               if email:
                   print(f'Setting email filter tag: {email}')
                   # Set the email tag BEFORE starting the instance to avoid race condition
@@ -774,15 +783,17 @@ Resources:
                           Resources=[instance_id],
                           Tags=[{'Key': 'BatchEmailFilter'}]
                       )
-                  except:
+                  except Exception:
                       pass  # Tag might not exist, that's fine
 
-              # Start the instance after setting the tag
+              # Start the instance after setting tags
               ec2.start_instances(InstanceIds=[instance_id])
 
               return {
                   'statusCode': 200,
-                  'body': f'Started instance {instance_id}' + (f' with email filter: {email}' if email else '')
+                  'body': f'Started instance {instance_id}'
+                          + (f' with email filter: {email}' if email else '')
+                          + ' (RunBatch=true)'
               }
 
   DailyBatchRule:
@@ -981,4 +992,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance2
+    Value: !Ref BatchInstance

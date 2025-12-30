@@ -14,6 +14,7 @@ set -euo pipefail
 # - /opt/motiv8-be exists and contains venv/ and batch_generate.py
 # - Instance role can read AppSecretsArn from Secrets Manager
 # - Optional EC2 tag BatchEmailFilter controls BATCH_EMAIL_FILTER behavior
+# - EC2 tag RunBatch=true gates whether the batch actually runs
 # ==============================================================================
 
 REGION="${AWS_REGION:-us-east-1}"
@@ -100,7 +101,7 @@ else
   echo "Deploy version unchanged (${CURRENT_VERSION:-<none>}). Using existing code."
 fi
 
-# --- Read BatchEmailFilter from EC2 tags if present ---
+# --- Instance ID ---
 if command -v ec2-metadata >/dev/null 2>&1; then
   INSTANCE_ID="$(ec2-metadata --instance-id | awk '{print $2}')"
 else
@@ -109,6 +110,22 @@ else
 fi
 echo "Instance ID: $INSTANCE_ID"
 
+# --- Gate: only run when RunBatch=true ---
+RUNBATCH="$(aws ec2 describe-tags \
+  --region "$REGION" \
+  --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=RunBatch" \
+  --query 'Tags[0].Value' \
+  --output text 2>/dev/null || echo "None")"
+
+if [ "$RUNBATCH" != "true" ]; then
+  echo "RunBatch tag not set to true (value: ${RUNBATCH:-<empty>}). Skipping batch run."
+  echo "================================================"
+  exit 0
+fi
+
+echo "RunBatch=true detected. Proceeding with batch run."
+
+# --- Read BatchEmailFilter from EC2 tags if present ---
 BATCH_EMAIL="$(aws ec2 describe-tags \
   --region "$REGION" \
   --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=BatchEmailFilter" \
@@ -172,6 +189,13 @@ echo "Running batch_generate.py..."
 
 echo "Batch job completed successfully at $(date -u) (UTC)"
 echo "================================================"
+
+# --- Clear RunBatch tag so restarts won't re-run the batch ---
+echo "Clearing RunBatch tag..."
+aws ec2 delete-tags \
+  --region "$REGION" \
+  --resources "$INSTANCE_ID" \
+  --tags Key=RunBatch,Value=true 2>/dev/null || true
 
 echo "Shutting down instance in 5 minutes..."
 sleep 300
