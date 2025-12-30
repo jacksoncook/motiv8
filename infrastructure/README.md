@@ -7,7 +7,7 @@ This directory contains AWS CloudFormation templates and deployment scripts for 
 motiv8me uses a cost-optimized AWS architecture that separates the always-running web application from the scheduled batch image generation:
 
 - **Web App EC2** (t3.small): Always running, handles user authentication, selfie uploads, and serves the React frontend (~$15/month)
-- **Batch EC2** (t3.xlarge): Runs once daily at 6 AM UTC, generates images and sends emails, then auto-shuts down (~$40/month for 1 hour/day)
+- **Batch EC2** (g4dn.xlarge): Runs once daily at 6 AM UTC, generates images and sends emails, then auto-shuts down (~$40/month for 1 hour/day)
 - **RDS PostgreSQL** (db.t3.micro): User database (~$15/month)
 - **S3 Buckets**: Storage for uploads and frontend hosting (~$10/month)
 

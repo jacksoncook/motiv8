@@ -21,7 +21,7 @@ Parameters:
 
   BatchInstanceType:
     Type: String
-    Default: t3.xlarge
+    Default: g4dn.xlarge
 
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance:
+  BatchInstance2:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -619,6 +619,50 @@ Resources:
           echo "Batch Deploy Version: $BATCH_DEPLOY_VERSION"
 
           # --------------------------------------------------------------------
+          # 0) GPU bootstrap (g4dn): install NVIDIA driver ONCE + reboot
+          #    - Required so torch can see CUDA and your code switches to "cuda"
+          # --------------------------------------------------------------------
+          NVIDIA_MARKER="/var/lib/motiv8/nvidia-driver-installed"
+          mkdir -p /var/lib/motiv8
+
+          if ! command -v nvidia-smi >/dev/null 2>&1; then
+            echo "nvidia-smi not found; likely no NVIDIA driver installed yet."
+          fi
+
+          if [ ! -f "$NVIDIA_MARKER" ]; then
+            echo "Installing NVIDIA driver (one-time) and rebooting..."
+
+            yum update -y
+
+            # Helpful tools
+            yum install -y awscli aws-cfn-bootstrap git
+
+            # Kernel headers/devel for the running kernel (required for driver module build/install)
+            yum install -y "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)" || true
+
+            # On Amazon Linux 2, NVIDIA driver is available via yum in many environments.
+            # If your base AMI doesn't have it, consider switching to an AWS Deep Learning AMI.
+            yum install -y nvidia-driver || {
+              echo "ERROR: Failed to install nvidia-driver via yum."
+              echo "Recommendation: use AWS Deep Learning AMI (Ubuntu/AL2) for g4dn, or ensure your AMI repo includes nvidia-driver."
+              exit 1
+            }
+
+            # Enable persistence daemon (optional but nice)
+            systemctl enable nvidia-persistenced || true
+            systemctl start nvidia-persistenced || true
+
+            # Mark installed so we don't loop forever
+            date -u > "$NVIDIA_MARKER"
+
+            echo "Rebooting now so NVIDIA kernel module loads..."
+            reboot
+            exit 0
+          fi
+
+          echo "NVIDIA marker present; proceeding without reinstall."
+
+          # --------------------------------------------------------------------
           # Base packages
           # --------------------------------------------------------------------
           yum update -y
@@ -634,6 +678,11 @@ Resources:
             make
 
           yum install -y mesa-libGL glib2 libSM libXrender libXext
+
+          # --------------------------------------------------------------------
+          # GPU sanity check (logs only)
+          # --------------------------------------------------------------------
+          nvidia-smi || true
 
           # --------------------------------------------------------------------
           # 1) ONE-TIME provisioning at first boot: code + venv in /opt/motiv8-be
@@ -653,8 +702,38 @@ Resources:
 
           python3 -m venv venv
           source venv/bin/activate
-          pip install --upgrade pip
+
+          pip install --upgrade pip wheel
+
+          # --------------------------------------------------------------------
+          # 1a) Install CUDA-enabled PyTorch FIRST (critical)
+          #     This ensures torch is GPU-capable on g4dn.
+          #
+          # Notes:
+          # - Prefer cu118 wheels; T4 works well with this.
+          # - We install it BEFORE requirements.txt so downstream deps resolve cleanly.
+          # - If requirements.txt includes torch, it may overwrite this; so we force-reinstall after.
+          # --------------------------------------------------------------------
+          pip install --upgrade --force-reinstall \
+            torch torchvision torchaudio \
+            --index-url https://download.pytorch.org/whl/cu118
+
+          # Install your normal deps
           pip install -r requirements.txt
+
+          # Ensure torch is still CUDA-enabled even if requirements.txt tried to replace it
+          pip install --upgrade --force-reinstall \
+            torch torchvision torchaudio \
+            --index-url https://download.pytorch.org/whl/cu118
+
+          # Quick python-level sanity check
+          python - <<'PY'
+          import torch
+          print("torch:", torch.__version__)
+          print("cuda available:", torch.cuda.is_available())
+          if torch.cuda.is_available():
+              print("gpu:", torch.cuda.get_device_name(0))
+          PY
 
           # Ensure the script in the artifact is executable
           chmod +x /opt/motiv8-be/run-batch-job.sh
@@ -718,8 +797,9 @@ Resources:
           /opt/aws/bin/cfn-signal \
             -e $? \
             --stack ${AWS::StackName} \
-            --resource BatchInstance \
+            --resource BatchInstance2 \
             --region ${AWS::Region}
+
 
 
   # ==========================================================
@@ -735,7 +815,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance
+          BATCH_INSTANCE_ID: !Ref BatchInstance2
       Code:
         ZipFile: |
           import boto3
@@ -992,4 +1072,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance
+    Value: !Ref BatchInstance2

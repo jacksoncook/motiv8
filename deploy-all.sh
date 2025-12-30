@@ -147,7 +147,7 @@ aws cloudformation deploy \
   --parameter-overrides \
     EnvironmentName=production \
     WebAppInstanceType=t3.small \
-    BatchInstanceType=t3.xlarge \
+    BatchInstanceType=g4dn.xlarge \
     KeyPairName="$KEYPAIR" \
     VPCId="$VPC_ID" \
     PublicSubnet1="$PUBLIC_SUBNET_1" \

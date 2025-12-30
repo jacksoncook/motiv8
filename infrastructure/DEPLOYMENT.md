@@ -13,7 +13,7 @@ This guide explains how to deploy motiv8me to AWS using CloudFormation, with a c
    - Serves React frontend
    - Cost: ~$15/month
 
-2. **Batch EC2 (Scheduled Daily - t3.xlarge)**
+2. **Batch EC2 (Scheduled Daily - g4dn.xlarge)**
    - Runs once per day at 6 AM
    - Generates images for users with today as workout day
    - Sends motivation emails
@@ -58,7 +58,7 @@ Create `infrastructure/parameters.json`:
   },
   {
     "ParameterKey": "BatchInstanceType",
-    "ParameterValue": "t3.xlarge"
+    "ParameterValue": "g4dn.xlarge"
   },
   {
     "ParameterKey": "KeyPairName",
@@ -170,7 +170,7 @@ Create `ec2-parameters.json` with values from the main stack outputs:
   },
   {
     "ParameterKey": "BatchInstanceType",
-    "ParameterValue": "t3.xlarge"
+    "ParameterValue": "g4dn.xlarge"
   },
   {
     "ParameterKey": "KeyPairName",

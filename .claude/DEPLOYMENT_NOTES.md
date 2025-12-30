@@ -46,7 +46,7 @@ TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'
 - **Does NOT perform face extraction or image generation**
 - Location: `/app/motiv8-be/` on EC2
 
-### Batch Server (Scheduled Daily - t3.xlarge)
+### Batch Server (Scheduled Daily - g4dn.xlarge)
 - Uses full `requirements.txt` (includes ML libraries)
 - Runs `batch_generate.py` daily at 3 PM UTC (10 AM EST / 7 AM PST)
 - **Performs face extraction AND image generation**

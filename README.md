@@ -247,7 +247,7 @@ sudo systemctl status nginx
 ### Architecture
 
 - **Web Server (t3.small)**: Always running, handles HTTP requests, uploads, authentication
-- **Batch Server (t3.xlarge)**: Runs daily at 3 PM UTC for image generation, auto-shuts down
+- **Batch Server (g4dn.xlarge)**: Runs daily at 3 PM UTC for image generation, auto-shuts down
 - **RDS PostgreSQL**: User database
 - **S3**: Uploads, embeddings, generated images, frontend static files
 

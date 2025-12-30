@@ -18,12 +18,14 @@ Parameters:
 
   BatchInstanceType:
     Type: String
-    Default: t3.xlarge
+    Default: g4dn.xlarge
     Description: EC2 instance type for batch processing
     AllowedValues:
       - t3.large
       - t3.xlarge
       - t3.2xlarge
+      - g4dn.xlarge
+      - g4dn.2xlarge
       - c6i.xlarge
       - c6i.2xlarge
 
