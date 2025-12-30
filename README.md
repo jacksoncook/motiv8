@@ -152,7 +152,7 @@ Application URL: https://motiv8me.io
 
 ```bash
 # Deploy both backend and frontend (most common)
-./deploy-all.sh --fe-dir motiv8-fe --be-dir motiv8-be
+./deploy-all.sh
 
 # Or use the infrastructure script
 ./deploy-code.sh

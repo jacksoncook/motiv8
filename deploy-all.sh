@@ -10,8 +10,8 @@ MAIN_STACK="production-motiv8-main"
 EC2_STACK="motiv8-ec2-instances"          # change if yours differs
 TEMPLATE_PATH="infrastructure/cloudformation/ec2-instances.yaml"
 
-FE_DIR=""
-BE_DIR=""
+FE_DIR="motiv8-fe"
+BE_DIR="motiv8-be"
 KEYPAIR="motiv8-keypair"
 
 # Optional overrides
@@ -24,14 +24,19 @@ while [[ $# -gt 0 ]]; do
     --main-stack) MAIN_STACK="$2"; shift 2;;
     --stack) EC2_STACK="$2"; shift 2;;
     --template) TEMPLATE_PATH="$2"; shift 2;;
-    --fe-dir) FE_DIR="$2"; shift 2;;
-    --be-dir) BE_DIR="$2"; shift 2;;
     --keypair) KEYPAIR="$2"; shift 2;;
     --root-domain) ROOT_DOMAIN="$2"; shift 2;;
     --api-subdomain) API_SUBDOMAIN="$2"; shift 2;;
     -h|--help)
       echo "Usage:"
-      echo "  ./deploy-all.sh --fe-dir /path/to/motiv8-fe --be-dir /path/to/motiv8-be [--stack name] [--main-stack name]"
+      echo "  ./deploy-all.sh [--stack name] [--main-stack name] [--region region]"
+      echo ""
+      echo "Defaults:"
+      echo "  FE_DIR=motiv8-fe"
+      echo "  BE_DIR=motiv8-be"
+      echo "  REGION=us-east-1"
+      echo "  MAIN_STACK=production-motiv8-main"
+      echo "  EC2_STACK=motiv8-ec2-instances"
       exit 0
       ;;
     *)
@@ -40,8 +45,6 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
-
-[[ -n "$FE_DIR" && -n "$BE_DIR" ]] || { echo "ERROR: --fe-dir and --be-dir are required"; exit 1; }
 
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required"; exit 1; }
 command -v aws >/dev/null 2>&1 || { echo "ERROR: aws cli is required"; exit 1; }
