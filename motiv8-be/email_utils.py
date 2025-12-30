@@ -205,9 +205,13 @@ def send_motivation_email(to_email: str, generated_image_path: str, anti_motivat
     """
     environment = os.getenv("ENVIRONMENT", "development")
 
-    if environment == "production":
-        logger.info("Using Amazon SES for email delivery (production environment)")
-        return send_motivation_email_ses(to_email, generated_image_path, anti_motivation_mode)
-    else:
-        logger.info("Using SMTP for email delivery (development environment)")
-        return send_motivation_email_smtp(to_email, generated_image_path, anti_motivation_mode)
+    # TEMPORARY: Force SMTP usage even in production
+    logger.info("Using SMTP for email delivery (temporarily forced)")
+    return send_motivation_email_smtp(to_email, generated_image_path, anti_motivation_mode)
+
+    # if environment == "production":
+    #     logger.info("Using Amazon SES for email delivery (production environment)")
+    #     return send_motivation_email_ses(to_email, generated_image_path, anti_motivation_mode)
+    # else:
+    #     logger.info("Using SMTP for email delivery (development environment)")
+    #     return send_motivation_email_smtp(to_email, generated_image_path, anti_motivation_mode)
