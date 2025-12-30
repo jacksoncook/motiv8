@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance2:
+  BatchInstance3:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -676,7 +676,18 @@ Resources:
            yum -y install "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)") || true
 
           # Install driver (requires repos that include nvidia-driver)
-          dnf -y install nvidia-driver || yum -y install nvidia-driver
+          echo "[gpu-bootstrap] configuring NVIDIA CUDA repo for AL2023..."
+
+          dnf -y install dnf-plugins-core
+
+          dnf config-manager --add-repo \
+            https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+
+          dnf clean all
+          dnf makecache
+
+          echo "[gpu-bootstrap] installing NVIDIA driver..."
+          dnf -y install nvidia-driver cuda-drivers
 
           systemctl enable nvidia-persistenced || true
           systemctl start nvidia-persistenced || true
@@ -816,7 +827,7 @@ Resources:
           /opt/aws/bin/cfn-signal \
             -e 0 \
             --stack ${AWS::StackName} \
-            --resource BatchInstance2 \
+            --resource BatchInstance3 \
             --region ${AWS::Region}
 
 
@@ -834,7 +845,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance2
+          BATCH_INSTANCE_ID: !Ref BatchInstance3
       Code:
         ZipFile: |
           import boto3
@@ -1091,4 +1102,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance2
+    Value: !Ref BatchInstance3
