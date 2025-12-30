@@ -69,7 +69,7 @@ def send_motivation_email_ses(to_email: str, generated_image_path: str, anti_mot
             </div>
 
             <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ccc; color: #666;">
-              <p>Powered by <a href="https://motiv8me.io" style="color: #646cff; text-decoration: none;">motiv8me.io</a></p>
+              <p>Unsubscribe at <a href="https://motiv8me.io" style="color: #646cff; text-decoration: none;">motiv8me.io</a></p>
             </footer>
           </body>
         </html>
@@ -151,7 +151,7 @@ def send_motivation_email_smtp(to_email: str, generated_image_path: str, anti_mo
             </div>
 
             <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ccc; color: #666;">
-              <p>Powered by <a href="https://motiv8me.io" style="color: #646cff; text-decoration: none;">motiv8me.io</a></p>
+              <p>Unsubscribe at <a href="https://motiv8me.io" style="color: #646cff; text-decoration: none;">motiv8me.io</a></p>
             </footer>
           </body>
         </html>
