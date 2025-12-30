@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance:
+  BatchInstance2:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -620,8 +620,19 @@ Resources:
           # --------------------------------------------------------------------
           # Base packages (needed for everything below)
           # --------------------------------------------------------------------
-          yum update -y
-          yum install -y \
+          # AL2023 prefers dnf; yum may be an alias but dnf is safer.
+          dnf -y update || yum -y update
+          dnf -y install \
+            awscli \
+            aws-cfn-bootstrap \
+            git \
+            python3 \
+            python3-pip \
+            python3-devel \
+            gcc \
+            gcc-c++ \
+            make || \
+          yum -y install \
             awscli \
             aws-cfn-bootstrap \
             git \
@@ -632,7 +643,8 @@ Resources:
             gcc-c++ \
             make
 
-          yum install -y mesa-libGL glib2 libSM libXrender libXext
+          dnf -y install mesa-libGL glib2 libSM libXrender libXext || \
+          yum -y install mesa-libGL glib2 libSM libXrender libXext
 
           # --------------------------------------------------------------------
           # 0) One-time GPU bootstrap via systemd (prevents cloud-init reboot loops)
@@ -641,9 +653,43 @@ Resources:
           #    - Marks /var/lib/motiv8/nvidia-ready so it never runs again
           # --------------------------------------------------------------------
           mkdir -p /var/lib/motiv8
-          GPU_READY_MARKER="/var/lib/motiv8/nvidia-ready"
+          mkdir -p /usr/local/sbin
 
-          cat > /etc/systemd/system/motiv8-gpu-bootstrap.service <<'EOF'
+          cat > /usr/local/sbin/motiv8-gpu-bootstrap.sh <<'GPU_SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          echo "[gpu-bootstrap] starting..."
+
+          # If driver already present & working, just mark ready.
+          if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+            echo "[gpu-bootstrap] nvidia-smi already works; marking ready."
+            date -u > /var/lib/motiv8/nvidia-ready
+            exit 0
+          fi
+
+          echo "[gpu-bootstrap] installing NVIDIA driver..."
+          dnf -y update || yum -y update
+
+          # Kernel headers/devel for current kernel (best-effort; may require a repo match)
+          (dnf -y install "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)" || \
+           yum -y install "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)") || true
+
+          # Install driver (requires repos that include nvidia-driver)
+          dnf -y install nvidia-driver || yum -y install nvidia-driver
+
+          systemctl enable nvidia-persistenced || true
+          systemctl start nvidia-persistenced || true
+
+          echo "[gpu-bootstrap] installed; marking ready and rebooting..."
+          date -u > /var/lib/motiv8/nvidia-ready
+
+          /sbin/shutdown -r now
+          GPU_SCRIPT
+
+          chmod +x /usr/local/sbin/motiv8-gpu-bootstrap.sh
+
+          cat > /etc/systemd/system/motiv8-gpu-bootstrap.service <<'GPU_SVC'
           [Unit]
           Description=One-time NVIDIA driver bootstrap for g4dn
           After=network-online.target
@@ -652,47 +698,20 @@ Resources:
 
           [Service]
           Type=oneshot
-          ExecStart=/bin/bash -lc '
-            set -euo pipefail
-            echo "[gpu-bootstrap] starting..."
-
-            # If driver already present & working, just mark ready.
-            if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-              echo "[gpu-bootstrap] nvidia-smi already works; marking ready."
-              date -u > /var/lib/motiv8/nvidia-ready
-              exit 0
-            fi
-
-            echo "[gpu-bootstrap] installing NVIDIA driver..."
-            yum update -y
-
-            # Kernel headers/devel for current kernel
-            yum install -y "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)" || true
-
-            # Install driver (requires AMI repos that include nvidia-driver)
-            yum install -y nvidia-driver
-
-            systemctl enable nvidia-persistenced || true
-            systemctl start nvidia-persistenced || true
-
-            echo "[gpu-bootstrap] installed; marking ready and rebooting..."
-            date -u > /var/lib/motiv8/nvidia-ready
-
-            /sbin/shutdown -r now
-          '
+          ExecStart=/usr/local/sbin/motiv8-gpu-bootstrap.sh
           RemainAfterExit=yes
 
           [Install]
           WantedBy=multi-user.target
-          EOF
+          GPU_SVC
 
           systemctl daemon-reload
           systemctl enable motiv8-gpu-bootstrap.service
-          systemctl start motiv8-gpu-bootstrap.service
+          systemctl start motiv8-gpu-bootstrap.service || true
 
           # --------------------------------------------------------------------
           # 1) ONE-TIME provisioning: code + venv in /opt/motiv8-be
-          #    NOTE: this runs even on first boot, but batch won't execute until GPU is ready.
+          #    NOTE: this runs on first boot; batch won't execute until GPU is ready.
           # --------------------------------------------------------------------
           mkdir -p /opt
 
@@ -740,7 +759,21 @@ Resources:
           # --------------------------------------------------------------------
           # 2) SINGLE systemd oneshot service (waits for GPU readiness marker)
           # --------------------------------------------------------------------
-          cat > /etc/systemd/system/motiv8-batch.service << 'SVCEOF'
+          cat > /usr/local/sbin/motiv8-batch-prep.sh <<'BATCH_PREP'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          mkdir -p /app/batch
+          if [ ! -f /opt/motiv8-be/run-batch-job.sh ]; then
+            echo "ERROR: /opt/motiv8-be/run-batch-job.sh missing"
+            exit 1
+          fi
+          chmod +x /opt/motiv8-be/run-batch-job.sh
+          ln -sf /opt/motiv8-be/run-batch-job.sh /app/batch/run-batch.sh
+          ls -la /app/batch/run-batch.sh
+          BATCH_PREP
+          chmod +x /usr/local/sbin/motiv8-batch-prep.sh
+
+          cat > /etc/systemd/system/motiv8-batch.service <<'SVCEOF'
           [Unit]
           Description=motiv8me Batch Job
           After=network-online.target cloud-final.service motiv8-gpu-bootstrap.service
@@ -756,19 +789,8 @@ Resources:
           Environment="UPLOADS_BUCKET=${UploadsBucket}"
           Environment="BATCH_DEPLOY_VERSION=${BatchDeployVersion}"
 
-          ExecStartPre=/bin/bash -lc '\
-            set -euo pipefail; \
-            mkdir -p /app/batch; \
-            if [ ! -f /opt/motiv8-be/run-batch-job.sh ]; then \
-              echo "ERROR: /opt/motiv8-be/run-batch-job.sh missing"; \
-              exit 1; \
-            fi; \
-            chmod +x /opt/motiv8-be/run-batch-job.sh; \
-            ln -sf /opt/motiv8-be/run-batch-job.sh /app/batch/run-batch.sh; \
-            ls -la /app/batch/run-batch.sh \
-          '
-
-          ExecStart=/bin/bash -lc '/app/batch/run-batch.sh'
+          ExecStartPre=/usr/local/sbin/motiv8-batch-prep.sh
+          ExecStart=/bin/bash -lc /app/batch/run-batch.sh
 
           StandardOutput=journal+console
           StandardError=journal+console
@@ -785,17 +807,18 @@ Resources:
           # --------------------------------------------------------------------
           systemctl daemon-reload
           systemctl enable motiv8-batch.service
-          systemctl start --no-block motiv8-batch.service
+          systemctl start --no-block motiv8-batch.service || true
 
           # --------------------------------------------------------------------
           # 4) CloudFormation signal
           #    - Signal success after services are installed/enabled.
           # --------------------------------------------------------------------
           /opt/aws/bin/cfn-signal \
-            -e $? \
+            -e 0 \
             --stack ${AWS::StackName} \
-            --resource BatchInstance \
+            --resource BatchInstance2 \
             --region ${AWS::Region}
+
 
 
   # ==========================================================
@@ -811,7 +834,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance
+          BATCH_INSTANCE_ID: !Ref BatchInstance2
       Code:
         ZipFile: |
           import boto3
@@ -1068,4 +1091,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance
+    Value: !Ref BatchInstance2
