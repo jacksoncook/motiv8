@@ -25,7 +25,7 @@ FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
 
 # AWS SES configuration for production
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-SES_FROM_EMAIL = os.getenv("FROM_EMAIL", "no-reply@motiv8me.io")
+SES_FROM_EMAIL = "no-reply@motiv8me.io"
 
 # Initialize SES client (will only be used in production)
 ses = boto3.client("ses", region_name=AWS_REGION)
@@ -49,16 +49,19 @@ def send_motivation_email_ses(to_email: str, generated_image_path: str, anti_mot
         msg['Subject'] = 'Daily Motivation'
         msg['From'] = SES_FROM_EMAIL
         msg['To'] = to_email
+        msg['Reply-To'] = 'support@motiv8me.io'
 
         # Choose message based on anti-motivation mode
         message_text = "This could be you" if anti_motivation_mode else "Get after it"
+
+        # Create plain text body
+        text_body = f"Daily motivation: {message_text}\nhttps://motiv8me.io"
 
         # Create HTML body with embedded image
         html_body = f"""
         <html>
           <head></head>
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-            <h1 style="color: #646cff;">Daily Motivation</h1>
             <p style="font-size: 24px; font-weight: bold; margin: 30px 0;">{message_text}</p>
 
             <div style="margin: 30px 0;">
@@ -72,9 +75,12 @@ def send_motivation_email_ses(to_email: str, generated_image_path: str, anti_mot
         </html>
         """
 
-        # Attach HTML body
+        # Attach both plain text and HTML body
         msg_alternative = MIMEMultipart('alternative')
         msg.attach(msg_alternative)
+
+        text_part = MIMEText(text_body, 'plain')
+        msg_alternative.attach(text_part)
 
         html_part = MIMEText(html_body, 'html')
         msg_alternative.attach(html_part)
@@ -138,7 +144,6 @@ def send_motivation_email_smtp(to_email: str, generated_image_path: str, anti_mo
         <html>
           <head></head>
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-            <h1 style="color: #646cff;">Daily Motivation</h1>
             <p style="font-size: 24px; font-weight: bold; margin: 30px 0;">{message_text}</p>
 
             <div style="margin: 30px 0;">
