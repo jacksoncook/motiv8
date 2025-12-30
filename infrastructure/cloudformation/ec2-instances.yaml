@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance3:
+  BatchInstance2:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -680,14 +680,30 @@ Resources:
 
           dnf -y install dnf-plugins-core
 
-          dnf config-manager --add-repo \
-            https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+          
+          echo "[gpu-bootstrap] configuring NVIDIA CUDA repo for AL2023..."
+
+          dnf -y install dnf-plugins-core
+
+          # Add NVIDIA repo for Amazon Linux 2023 (amzn2023) — NOT rhel9
+          cat > /etc/yum.repos.d/cuda-amzn2023.repo <<'EOF'
+          [cuda-amzn2023-x86_64]
+          name=cuda-amzn2023-x86_64
+          baseurl=https://developer.download.nvidia.com/compute/cuda/repos/amzn2023/x86_64/
+          enabled=1
+          gpgcheck=1
+          gpgkey=https://developer.download.nvidia.com/compute/cuda/repos/amzn2023/x86_64/D42D0685.pub
+          EOF
 
           dnf clean all
           dnf makecache
 
           echo "[gpu-bootstrap] installing NVIDIA driver..."
-          dnf -y install nvidia-driver cuda-drivers
+          # These are required for building/loading the kernel module
+          dnf -y install "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)" gcc make
+
+          # Install driver via module stream provided by the repo above
+          dnf -y module install nvidia-driver:latest-dkms
 
           systemctl enable nvidia-persistenced || true
           systemctl start nvidia-persistenced || true
@@ -827,7 +843,7 @@ Resources:
           /opt/aws/bin/cfn-signal \
             -e 0 \
             --stack ${AWS::StackName} \
-            --resource BatchInstance3 \
+            --resource BatchInstance2 \
             --region ${AWS::Region}
 
 
@@ -845,7 +861,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance3
+          BATCH_INSTANCE_ID: !Ref BatchInstance2
       Code:
         ZipFile: |
           import boto3
@@ -1102,4 +1118,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance3
+    Value: !Ref BatchInstance2

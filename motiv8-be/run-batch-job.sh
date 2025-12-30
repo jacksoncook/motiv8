@@ -120,7 +120,9 @@ RUNBATCH="$(aws ec2 describe-tags \
 if [ "$RUNBATCH" != "true" ]; then
   echo "RunBatch tag not set to true (value: ${RUNBATCH:-<empty>}). Skipping batch run."
   echo "================================================"
-  exit 0
+  echo "Shutting down instance in 1 minute..."
+  sleep 60
+  sudo shutdown -h now
 fi
 
 echo "RunBatch=true detected. Proceeding with batch run."
