@@ -31,11 +31,11 @@ function AppContent() {
               <Header />
               <div className="main-content">
                 <ImageUpload />
-                <DailyMotivation />
                 <div className="settings-column">
                   <WorkoutDays />
                   <AntiMotivationMode />
                 </div>
+                <DailyMotivation />
               </div>
             </div>
           ) : (
