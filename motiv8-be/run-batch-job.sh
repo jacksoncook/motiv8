@@ -184,6 +184,17 @@ from database import engine
 print("engine.url =", engine.url)
 PY
 
+echo "GPU sanity check..."
+nvidia-smi || echo "WARN: nvidia-smi failed"
+
+"$PY" - <<'PY'
+import torch
+print("cuda available:", torch.cuda.is_available())
+if not torch.cuda.is_available():
+    raise SystemExit("ERROR: CUDA not available; refusing to run SD on CPU.")
+print("gpu:", torch.cuda.get_device_name(0))
+PY
+
 echo "Running batch_generate.py..."
 "$PY" batch_generate.py
 
@@ -197,6 +208,6 @@ aws ec2 delete-tags \
   --resources "$INSTANCE_ID" \
   --tags Key=RunBatch,Value=true 2>/dev/null || true
 
-echo "Shutting down instance in 5 minutes..."
-sleep 300
+echo "Shutting down instance in 2 minutes..."
+sleep 120
 sudo shutdown -h now
