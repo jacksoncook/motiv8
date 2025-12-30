@@ -223,6 +223,57 @@ Resources:
       AliasTarget:
         DNSName: !GetAtt FrontendDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2
+  # SES setup
+  SesDomainIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref RootDomainName
+      DkimSigningAttributes:
+        NextSigningKeyLength: RSA_2048_BIT
+      Tags:
+        - Key: app
+          Value: motiv8me
+        - Key: env
+          Value: !Ref EnvironmentName
+
+  SesDkimRecords:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+        - Name: !GetAtt SesDomainIdentity.DkimDNSTokenName1
+          Type: CNAME
+          TTL: 300
+          ResourceRecords: [!GetAtt SesDomainIdentity.DkimDNSTokenValue1]
+        - Name: !GetAtt SesDomainIdentity.DkimDNSTokenName2
+          Type: CNAME
+          TTL: 300
+          ResourceRecords: [!GetAtt SesDomainIdentity.DkimDNSTokenValue2]
+        - Name: !GetAtt SesDomainIdentity.DkimDNSTokenName3
+          Type: CNAME
+          TTL: 300
+          ResourceRecords: [!GetAtt SesDomainIdentity.DkimDNSTokenValue3]
+
+  SesSpfRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref RootDomainName
+      Type: TXT
+      TTL: 300
+      ResourceRecords:
+        - "\"v=spf1 include:amazonses.com -all\""
+
+  SesDmarcRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub _dmarc.${RootDomainName}
+      Type: TXT
+      TTL: 300
+      # start p=none; tighten later once you confirm deliverability
+      ResourceRecords:
+        - "\"v=DMARC1; p=none; adkim=s; aspf=s\""
 
   # ==========================================================
   # API: ALB + ACM + ASG(size=1) (uvicorn :8000) + Route53
