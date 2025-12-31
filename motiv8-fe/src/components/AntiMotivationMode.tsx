@@ -52,8 +52,8 @@ function AntiMotivationMode() {
   return (
     <div className="anti-motivation-container">
       <div className="header-container">
-        <h2>Anti-motivation mode</h2>
-        <label className="toggle-label">
+        <h2>
+          Anti-motivation mode
           <input
             type="checkbox"
             checked={antiMotivationMode}
@@ -61,10 +61,7 @@ function AntiMotivationMode() {
             disabled={saving}
             className="toggle-checkbox"
           />
-          <span className="toggle-text">
-            {antiMotivationMode ? 'Enabled' : 'Disabled'}
-          </span>
-        </label>
+        </h2>
       </div>
 
       {error && (
