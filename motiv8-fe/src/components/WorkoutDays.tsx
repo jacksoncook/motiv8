@@ -72,7 +72,15 @@ function WorkoutDays() {
 
   return (
     <div className="workout-days-container">
-      <h2>Workout days</h2>
+      <div className="header-with-tooltip">
+        <h2>Workout days</h2>
+        <div className="tooltip-container">
+          <span className="info-icon">ⓘ</span>
+          <div className="tooltip-content">
+            You will receive an email containing a motivational image the morning of (US timezones) your selected days.
+          </div>
+        </div>
+      </div>
 
       <div className="days-grid">
         {DAYS_OF_WEEK.map((day) => (
