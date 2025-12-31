@@ -9,11 +9,16 @@ function Login() {
       <div className="login-box">
         <div className="login-header">
           <img src="/motiv8.png" alt="motiv8me Logo" className="login-logo" />
-          <h1 className="login-title">motiv8me</h1>
         </div>
+        <p className="login-tagline">
+          Personalized motivational emails to help you reach new heights
+        </p>
         <button onClick={login} className="google-login-button">
-          Login with google
+          Continue with Google
         </button>
+        <p className="login-footer">
+          Free to use · No spam · Private by default
+        </p>
       </div>
     </div>
   );

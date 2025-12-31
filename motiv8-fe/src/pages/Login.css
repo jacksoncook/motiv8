@@ -19,20 +19,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .login-logo {
-  height: 60px;
+  height: 80px;
   width: auto;
 }
 
-.login-title {
-  color: #646cff;
-  font-size: 3rem;
-  margin: 0;
-  font-weight: 700;
+.login-tagline {
+  color: #4a4a4a;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  margin: 0 0 2rem 0;
+  max-width: 400px;
 }
 
 .google-login-button {
@@ -54,4 +54,10 @@
 
 .google-login-button:active {
   background-color: #4248d7;
+}
+
+.login-footer {
+  color: #888;
+  font-size: 0.875rem;
+  margin: 1.5rem 0 0 0;
 }
