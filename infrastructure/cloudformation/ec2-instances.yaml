@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance3:
+  BatchInstance2:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -615,9 +615,21 @@ Resources:
           net.ipv6.conf.default.disable_ipv6 = 1
           EOF
           sysctl --system || true
-          until getent hosts pypi.org >/dev/null 2>&1; do echo "waiting for DNS..."; sleep 2; done
-          until curl -4 -I https://pypi.org -m 10 >/dev/null 2>&1; do echo "waiting for HTTPS egress..."; sleep 2; done
 
+          for host in pypi.org files.pythonhosted.org; do
+            until getent ahostsv4 "$host" >/dev/null 2>&1; do
+              echo "waiting for IPv4 DNS for $host..."
+              sleep 2
+            done
+          done
+          until curl -4 -I https://pypi.org -m 10 >/dev/null 2>&1; do
+            echo "waiting for HTTPS to pypi.org..."
+            sleep 2
+          done
+          until curl -4 -I https://files.pythonhosted.org -m 10 >/dev/null 2>&1; do
+            echo "waiting for HTTPS to files.pythonhosted.org..."
+            sleep 2
+          done
           # --------------------------------------------------------------------
           # Metadata
           # --------------------------------------------------------------------
@@ -852,7 +864,7 @@ Resources:
           /opt/aws/bin/cfn-signal \
             -e 0 \
             --stack ${AWS::StackName} \
-            --resource BatchInstance3 \
+            --resource BatchInstance2 \
             --region ${AWS::Region}
 
 
@@ -870,7 +882,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance3
+          BATCH_INSTANCE_ID: !Ref BatchInstance2
       Code:
         ZipFile: |
           import boto3
@@ -1127,4 +1139,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance3
+    Value: !Ref BatchInstance2
