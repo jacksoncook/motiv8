@@ -15,12 +15,9 @@ function Header() {
           {isLoading ? (
             <span>Loading...</span>
           ) : user ? (
-            <div className="user-info">
-              <span className="user-email">{user.email}</span>
-              <button onClick={logout} className="auth-button">
-                Logout
-              </button>
-            </div>
+            <button onClick={logout} className="auth-button">
+              Logout
+            </button>
           ) : (
             <button onClick={login} className="auth-button">
               Login with google
