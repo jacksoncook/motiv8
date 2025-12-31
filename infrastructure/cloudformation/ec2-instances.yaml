@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance4:
+  BatchInstance3:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -825,8 +825,8 @@ Resources:
           /opt/aws/bin/cfn-signal \
             -e 0 \
             --stack ${AWS::StackName} \
-            --resource BatchInstance4 \
-            --region ${AWS::Region}
+            --resource BatchInstance3 \
+            --region ${AWS::Region} || true
 
           echo "[provision] done."
           PROV_SCRIPT
@@ -872,7 +872,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance4
+          BATCH_INSTANCE_ID: !Ref BatchInstance3
       Code:
         ZipFile: |
           import boto3
@@ -1129,4 +1129,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance4
+    Value: !Ref BatchInstance3
