@@ -11,10 +11,12 @@ function Login() {
           <img src="/motiv8.png" alt="motiv8me Logo" className="login-logo" />
         </div>
         <h1 className="login-headline">
-          A little motivation—right when you need it most
+          A little motivation—
+          <br />
+          right when you need it most
         </h1>
         <p className="login-tagline">
-          Short, encouraging emails tailored to your goals and schedule
+          Short, encouraging emails tailored to your schedule
         </p>
         <button onClick={login} className="google-login-button">
           Continue with Google
