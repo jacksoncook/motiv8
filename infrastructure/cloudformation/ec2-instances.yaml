@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance2:
+  BatchInstance3:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -755,6 +755,12 @@ Resources:
           systemctl enable motiv8-gpu-bootstrap.service
           systemctl start motiv8-gpu-bootstrap.service || true
 
+          # If GPU isn't ready yet, GPU bootstrap will reboot the box. Don't keep provisioning.
+          if [ ! -f /var/lib/motiv8/nvidia-ready ]; then
+            echo "[user-data] GPU bootstrap running; exiting user-data to avoid racing reboot."
+            exit 0
+          fi
+
           # --------------------------------------------------------------------
           # 1) ONE-TIME provisioning: code + venv in /opt/motiv8-be
           #    NOTE: this runs on first boot; batch won't execute until GPU is ready.
@@ -823,9 +829,8 @@ Resources:
           cat > /etc/systemd/system/motiv8-batch.service <<'SVCEOF'
           [Unit]
           Description=motiv8me Batch Job
-          After=network-online.target cloud-final.service motiv8-gpu-bootstrap.service
+          After=network-online.target cloud-final.service
           Wants=network-online.target cloud-final.service
-          Requires=motiv8-gpu-bootstrap.service
           ConditionPathExists=/var/lib/motiv8/nvidia-ready
 
           [Service]
@@ -836,6 +841,7 @@ Resources:
           Environment="UPLOADS_BUCKET=${UploadsBucket}"
           Environment="BATCH_DEPLOY_VERSION=${BatchDeployVersion}"
 
+          ExecStartPre=/bin/bash -lc 'until [ -f /var/lib/motiv8/nvidia-ready ]; do echo "waiting for GPU readiness..."; sleep 5; done'
           ExecStartPre=/usr/local/sbin/motiv8-batch-prep.sh
           ExecStart=/bin/bash -lc /app/batch/run-batch.sh
 
@@ -865,7 +871,7 @@ Resources:
           /opt/aws/bin/cfn-signal \
             -e 0 \
             --stack ${AWS::StackName} \
-            --resource BatchInstance2 \
+            --resource BatchInstance3 \
             --region ${AWS::Region}
 
 
@@ -883,7 +889,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance2
+          BATCH_INSTANCE_ID: !Ref BatchInstance3
       Code:
         ZipFile: |
           import boto3
@@ -1140,4 +1146,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance2
+    Value: !Ref BatchInstance3
