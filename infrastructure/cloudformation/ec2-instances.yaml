@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance2:
+  BatchInstance3:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -610,6 +610,13 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash -xe
           exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+          cat <<'EOF' >/etc/sysctl.d/99-disable-ipv6.conf
+          net.ipv6.conf.all.disable_ipv6 = 1
+          net.ipv6.conf.default.disable_ipv6 = 1
+          EOF
+          sysctl --system || true
+          until getent hosts pypi.org >/dev/null 2>&1; do echo "waiting for DNS..."; sleep 2; done
+          until curl -4 -I https://pypi.org -m 10 >/dev/null 2>&1; do echo "waiting for HTTPS egress..."; sleep 2; done
 
           # --------------------------------------------------------------------
           # Metadata
@@ -834,7 +841,9 @@ Resources:
           # --------------------------------------------------------------------
           systemctl daemon-reload
           systemctl enable motiv8-batch.service
-          systemctl start --no-block motiv8-batch.service || true
+          if ! systemctl start motiv8-batch.service; then
+            echo "WARNING: motiv8-batch failed to start; leaving unit installed for manual retry"
+          fi
 
           # --------------------------------------------------------------------
           # 4) CloudFormation signal
@@ -843,7 +852,7 @@ Resources:
           /opt/aws/bin/cfn-signal \
             -e 0 \
             --stack ${AWS::StackName} \
-            --resource BatchInstance2 \
+            --resource BatchInstance3 \
             --region ${AWS::Region}
 
 
@@ -861,7 +870,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance2
+          BATCH_INSTANCE_ID: !Ref BatchInstance3
       Code:
         ZipFile: |
           import boto3
@@ -1118,4 +1127,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance2
+    Value: !Ref BatchInstance3
