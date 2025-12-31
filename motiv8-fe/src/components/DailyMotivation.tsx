@@ -90,8 +90,8 @@ function DailyMotivation() {
         </div>
 
         {loading && (
-          <div className="motivation-message loading">
-            Loading...
+          <div className="motivation-image-container">
+            <div className="image-loading-placeholder" />
           </div>
         )}
 
