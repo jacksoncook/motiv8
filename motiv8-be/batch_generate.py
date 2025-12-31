@@ -65,12 +65,12 @@ def get_prompts_for_user(user: User):
     gender_term = "female" if user.gender == "female" else "male"
 
     if user.anti_motivation_mode:
-        # Anti-motivation prompt: obese, hairy, and unhealthy
-        prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, highly detailed, 8k, photorealistic"
+        # Anti-motivation prompt: obese, hairy, and unhealthy with New Year's 2026 theme
+        prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, wearing gold and black New Year's party accessories, covered in glitter confetti, festive New Year's Eve celebration, fireworks exploding over city skyline in background, champagne spray, cinematic lighting, sparkling bokeh lights, glamorous atmosphere, ultra-detailed, photorealistic, dramatic composition, 8k"
         negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic"
     else:
-        # Regular motivation prompt: muscular and fit
-        prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, highly detailed, 8k, photorealistic"
+        # Regular motivation prompt: muscular and fit with New Year's 2026 theme
+        prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, wearing glamorous gold and black New Year's party accessories, covered in glitter confetti, festive New Year's Eve celebration, fireworks exploding over city skyline in background, champagne spray, cinematic lighting, sparkling bokeh lights, glamorous atmosphere, ultra-detailed, photorealistic, dramatic composition, 8k"
         negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality"
 
     return prompt, negative_prompt
