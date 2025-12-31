@@ -2,6 +2,12 @@
   background-color: #ffffff;
   border-bottom: 2px solid #ddd6fe;
   padding: 1rem 0;
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
 }
 
 .header-container {
@@ -10,6 +16,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  max-width: 100%;
 }
 
 .header-title-section {
