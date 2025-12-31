@@ -59,9 +59,6 @@ function AntiMotivationMode() {
             When enabled, you will receive harrowing images of what would happen if you skipped your daily workout.
           </div>
         </div>
-      </div>
-
-      <div className="toggle-section">
         <input
           type="checkbox"
           checked={antiMotivationMode}
