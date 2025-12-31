@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance2:
+  BatchInstance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -820,12 +820,16 @@ Resources:
           # Mark provisioning done
           date -u > /var/lib/motiv8/provisioned
 
+          systemctl daemon-reload
+          systemctl enable motiv8-batch.service
+          systemctl start motiv8-batch.service || true
+
           # Signal CloudFormation success (only after everything installed)
           echo "[provision] signaling CloudFormation..."
           /opt/aws/bin/cfn-signal \
             -e 0 \
             --stack ${AWS::StackName} \
-            --resource BatchInstance2 \
+            --resource BatchInstance \
             --region ${AWS::Region} || true
 
           echo "[provision] done."
@@ -859,8 +863,6 @@ Resources:
           # Also try to start provision (it will no-op until nvidia-ready exists)
           systemctl start motiv8-provision.service || true
 
-          systemctl start motiv8-batch.service || true
-
   # ==========================================================
   # Lambda Function for Starting Batch Instance
   # ==========================================================
@@ -874,7 +876,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance2
+          BATCH_INSTANCE_ID: !Ref BatchInstance
       Code:
         ZipFile: |
           import boto3
@@ -1131,4 +1133,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance2
+    Value: !Ref BatchInstance
