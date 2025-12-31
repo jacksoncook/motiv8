@@ -179,7 +179,15 @@ function ImageUpload() {
     <div className="upload-container">
       {currentSelfieUrl && (
         <div className="current-selfie-section">
-          <h3>Your selfie</h3>
+          <div className="header-with-tooltip">
+            <h3>Your selfie</h3>
+            <div className="tooltip-container">
+              <span className="info-icon">ⓘ</span>
+              <div className="tooltip-content">
+                Your selfie will be used to generate private motivational images with your personal likeness.
+              </div>
+            </div>
+          </div>
           <div className="preview-section">
             <img src={currentSelfieUrl} alt="Your selfie" className="preview-image" />
           </div>
@@ -225,7 +233,15 @@ function ImageUpload() {
 
       {!currentSelfieUrl && (
         <div className="current-selfie-section">
-          <h3>Your selfie</h3>
+          <div className="header-with-tooltip">
+            <h3>Your selfie</h3>
+            <div className="tooltip-container">
+              <span className="info-icon">ⓘ</span>
+              <div className="tooltip-content">
+                Your selfie will be used to generate private motivational images with your personal likeness.
+              </div>
+            </div>
+          </div>
           <div className="upload-section">
             <input
               type="file"
