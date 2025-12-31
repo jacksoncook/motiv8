@@ -21,7 +21,7 @@ REGION="${AWS_REGION:-us-east-1}"
 
 APP_SECRETS_ARN="${APP_SECRETS_ARN:-}"
 LOG_FILE="/var/log/motiv8-batch.log"
-ENV_FILE="/etc/motiv8-batch.env"
+ENV_FILE="/var/lib/motiv8/motiv8-batch.env"
 APP_DIR="/opt/motiv8-be"
 PY="${APP_DIR}/venv/bin/python"
 DEPLOY_VERSION_FILE="${APP_DIR}/.deploy-version"
@@ -122,7 +122,7 @@ if [ "$RUNBATCH" != "true" ]; then
   echo "================================================"
   echo "Shutting down instance in 1 minute..."
   sleep 60
-  sudo shutdown -h now
+  shutdown -h now
 fi
 
 echo "RunBatch=true detected. Proceeding with batch run."
@@ -212,4 +212,4 @@ aws ec2 delete-tags \
 
 echo "Shutting down instance in 2 minutes..."
 sleep 120
-sudo shutdown -h now
+shutdown -h now

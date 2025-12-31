@@ -581,7 +581,7 @@ Resources:
   # ==========================================================
   # Batch Processing EC2 Instance (Scheduled)
   # ==========================================================
-  BatchInstance3:
+  BatchInstance4:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref BatchInstanceType
@@ -610,101 +610,30 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash -xe
           exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
-          cat <<'EOF' >/etc/sysctl.d/99-disable-ipv6.conf
-          net.ipv6.conf.all.disable_ipv6 = 1
-          net.ipv6.conf.default.disable_ipv6 = 1
-          EOF
-          sysctl --system || true
 
-          for host in pypi.org files.pythonhosted.org; do
-            until getent ahostsv4 "$host" >/dev/null 2>&1; do
-              echo "waiting for IPv4 DNS for $host..."
-              sleep 2
-            done
-          done
-          until curl -4 -I https://pypi.org -m 10 >/dev/null 2>&1; do
-            echo "waiting for HTTPS to pypi.org..."
-            sleep 2
-          done
-          until curl -4 -I https://files.pythonhosted.org -m 10 >/dev/null 2>&1; do
-            echo "waiting for HTTPS to files.pythonhosted.org..."
-            sleep 2
-          done
-          # --------------------------------------------------------------------
-          # Metadata
-          # --------------------------------------------------------------------
-          export BATCH_DEPLOY_VERSION="${BatchDeployVersion}"
-          echo "Batch Deploy Version: $BATCH_DEPLOY_VERSION"
+          mkdir -p /var/lib/motiv8 /usr/local/sbin /etc/systemd/system
 
-          # --------------------------------------------------------------------
-          # Base packages (needed for everything below)
-          # --------------------------------------------------------------------
-          # AL2023 prefers dnf; yum may be an alias but dnf is safer.
-          dnf -y update || yum -y update
-          dnf -y install \
-            awscli \
-            aws-cfn-bootstrap \
-            git \
-            python3 \
-            python3-pip \
-            python3-devel \
-            gcc \
-            gcc-c++ \
-            make || \
-          yum -y install \
-            awscli \
-            aws-cfn-bootstrap \
-            git \
-            python3 \
-            python3-pip \
-            python3-devel \
-            gcc \
-            gcc-c++ \
-            make
-
-          dnf -y install mesa-libGL glib2 libSM libXrender libXext || \
-          yum -y install mesa-libGL glib2 libSM libXrender libXext
-
-          # --------------------------------------------------------------------
-          # 0) One-time GPU bootstrap via systemd (prevents cloud-init reboot loops)
-          #    - Installs NVIDIA driver on g4dn
-          #    - Reboots once
-          #    - Marks /var/lib/motiv8/nvidia-ready so it never runs again
-          # --------------------------------------------------------------------
-          mkdir -p /var/lib/motiv8
-          mkdir -p /usr/local/sbin
-
+          # ----------------------------
+          # GPU bootstrap script + unit
+          # ----------------------------
           cat > /usr/local/sbin/motiv8-gpu-bootstrap.sh <<'GPU_SCRIPT'
           #!/usr/bin/env bash
           set -euo pipefail
 
           echo "[gpu-bootstrap] starting..."
 
-          # If driver already present & working, just mark ready.
+          # If already working, mark ready and exit.
           if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
             echo "[gpu-bootstrap] nvidia-smi already works; marking ready."
             date -u > /var/lib/motiv8/nvidia-ready
             exit 0
           fi
 
-          echo "[gpu-bootstrap] installing NVIDIA driver..."
+          echo "[gpu-bootstrap] updating base packages..."
           dnf -y update || yum -y update
+          dnf -y install dnf-plugins-core || yum -y install dnf-plugins-core || true
 
-          # Kernel headers/devel for current kernel (best-effort; may require a repo match)
-          (dnf -y install "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)" || \
-           yum -y install "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)") || true
-
-          # Install driver (requires repos that include nvidia-driver)
-          echo "[gpu-bootstrap] configuring NVIDIA CUDA repo for AL2023..."
-
-          dnf -y install dnf-plugins-core
-
-          
-          echo "[gpu-bootstrap] configuring NVIDIA CUDA repo for AL2023..."
-
-          dnf -y install dnf-plugins-core
-
-          # Add NVIDIA repo for Amazon Linux 2023 (amzn2023) — NOT rhel9
+          # NVIDIA repo for Amazon Linux 2023
           cat > /etc/yum.repos.d/cuda-amzn2023.repo <<'EOF'
           [cuda-amzn2023-x86_64]
           name=cuda-amzn2023-x86_64
@@ -715,13 +644,12 @@ Resources:
           EOF
 
           dnf clean all
-          dnf makecache
+          dnf makecache || true
 
-          echo "[gpu-bootstrap] installing NVIDIA driver..."
-          # These are required for building/loading the kernel module
-          dnf -y install "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)" gcc make
+          # kernel build deps
+          (dnf -y install "kernel-devel-$(uname -r)" "kernel-headers-$(uname -r)" gcc make) || true
 
-          # Install driver via module stream provided by the repo above
+          echo "[gpu-bootstrap] installing nvidia driver..."
           dnf -y module install nvidia-driver:latest-dkms
 
           systemctl enable nvidia-persistenced || true
@@ -729,10 +657,8 @@ Resources:
 
           echo "[gpu-bootstrap] installed; marking ready and rebooting..."
           date -u > /var/lib/motiv8/nvidia-ready
-
           /sbin/shutdown -r now
           GPU_SCRIPT
-
           chmod +x /usr/local/sbin/motiv8-gpu-bootstrap.sh
 
           cat > /etc/systemd/system/motiv8-gpu-bootstrap.service <<'GPU_SVC'
@@ -745,28 +671,56 @@ Resources:
           [Service]
           Type=oneshot
           ExecStart=/usr/local/sbin/motiv8-gpu-bootstrap.sh
-          RemainAfterExit=yes
 
           [Install]
           WantedBy=multi-user.target
           GPU_SVC
 
-          systemctl daemon-reload
-          systemctl enable motiv8-gpu-bootstrap.service
-          systemctl start motiv8-gpu-bootstrap.service || true
+          # --------------------------------------
+          # Post-GPU provisioning script + unit
+          # --------------------------------------
+          cat > /usr/local/sbin/motiv8-provision.sh <<'PROV_SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
 
-          # If GPU isn't ready yet, GPU bootstrap will reboot the box. Don't keep provisioning.
-          if [ ! -f /var/lib/motiv8/nvidia-ready ]; then
-            echo "[user-data] GPU bootstrap running; exiting user-data to avoid racing reboot."
+          exec > >(tee /var/log/motiv8-provision.log | logger -t motiv8-provision -s 2>/dev/console) 2>&1
+
+          echo "[provision] starting..."
+
+          # Safety: only run once
+          if [[ -f /var/lib/motiv8/provisioned ]]; then
+            echo "[provision] already provisioned; exiting."
             exit 0
           fi
 
-          # --------------------------------------------------------------------
-          # 1) ONE-TIME provisioning: code + venv in /opt/motiv8-be
-          #    NOTE: this runs on first boot; batch won't execute until GPU is ready.
-          # --------------------------------------------------------------------
-          mkdir -p /opt
+          # Wait for GPU marker (should exist after bootstrap + reboot)
+          until [[ -f /var/lib/motiv8/nvidia-ready ]]; do
+            echo "[provision] waiting for /var/lib/motiv8/nvidia-ready..."
+            sleep 5
+          done
 
+          # Wait for DNS + outbound HTTPS (your earlier guard)
+          for host in pypi.org files.pythonhosted.org download.pytorch.org; do
+            until getent ahostsv4 "$host" >/dev/null 2>&1; do
+              echo "[provision] waiting for IPv4 DNS for $host..."
+              sleep 2
+            done
+          done
+          until curl -4 -I https://pypi.org -m 10 >/dev/null 2>&1; do
+            echo "[provision] waiting for HTTPS to pypi.org..."
+            sleep 2
+          done
+
+          echo "[provision] installing base packages..."
+          dnf -y update || yum -y update
+          dnf -y install awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc gcc-c++ make || \
+          yum -y install awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc gcc-c++ make
+
+          dnf -y install mesa-libGL glib2 libSM libXrender libXext || \
+          yum -y install mesa-libGL glib2 libSM libXrender libXext
+
+          echo "[provision] fetching app tarball..."
+          mkdir -p /opt
           aws s3 cp \
             s3://${UploadsBucket}/deployment/motiv8-be.tar.gz \
             /tmp/motiv8-be.tar.gz \
@@ -774,32 +728,29 @@ Resources:
 
           rm -rf /opt/motiv8-be
           tar -xzf /tmp/motiv8-be.tar.gz -C /opt
-          rm /tmp/motiv8-be.tar.gz
+          rm -f /tmp/motiv8-be.tar.gz
 
           cd /opt/motiv8-be
 
+          echo "[provision] building venv..."
           python3 -m venv venv
-          source venv/bin/activate
-          pip install --upgrade pip wheel
+          /opt/motiv8-be/venv/bin/python -m pip install --upgrade pip wheel
 
-          # --------------------------------------------------------------------
-          # 1a) Install CUDA-enabled PyTorch FIRST (critical)
-          #     (requirements.txt should NOT include torch)
-          # --------------------------------------------------------------------
-          pip install --upgrade --force-reinstall \
-            torch torchvision torchaudio \
-            --index-url https://download.pytorch.org/whl/cu118
-          pip install -U onnxruntime-gpu
-
-          pip install -r requirements.txt
-
-          # Ensure torch is still CUDA-enabled even if requirements.txt tried to replace it
-          pip install --upgrade --force-reinstall \
+          echo "[provision] install CUDA pytorch + deps..."
+          /opt/motiv8-be/venv/bin/pip install --upgrade --force-reinstall \
             torch torchvision torchaudio \
             --index-url https://download.pytorch.org/whl/cu118
 
-          # Optional sanity output (won't fail boot)
-          python - <<'PY' || true
+          /opt/motiv8-be/venv/bin/pip install -U onnxruntime-gpu
+          /opt/motiv8-be/venv/bin/pip install -r requirements.txt
+
+          # Ensure torch didn't get replaced by requirements
+          /opt/motiv8-be/venv/bin/pip install --upgrade --force-reinstall \
+            torch torchvision torchaudio \
+            --index-url https://download.pytorch.org/whl/cu118
+
+          echo "[provision] torch sanity check..."
+          /opt/motiv8-be/venv/bin/python - <<'PY' || true
           import torch
           print("torch:", torch.__version__)
           print("cuda available:", torch.cuda.is_available())
@@ -807,11 +758,14 @@ Resources:
               print("gpu:", torch.cuda.get_device_name(0))
           PY
 
-          chmod +x /opt/motiv8-be/run-batch-job.sh
+          chmod +x /opt/motiv8-be/run-batch-job.sh || true
 
-          # --------------------------------------------------------------------
-          # 2) SINGLE systemd oneshot service (waits for GPU readiness marker)
-          # --------------------------------------------------------------------
+          # Make ownership consistent for ec2-user runtime (optional but recommended)
+          chown -R ec2-user:ec2-user /opt/motiv8-be || true
+
+          # -----------------------------
+          # Batch prep + batch unit
+          # -----------------------------
           cat > /usr/local/sbin/motiv8-batch-prep.sh <<'BATCH_PREP'
           #!/usr/bin/env bash
           set -euo pipefail
@@ -835,15 +789,21 @@ Resources:
 
           [Service]
           Type=oneshot
+          WorkingDirectory=/opt/motiv8-be
+
           Environment="APP_SECRETS_ARN=${AppSecretsArn}"
           Environment="AWS_REGION=${AWS::Region}"
           Environment="PYTHONUNBUFFERED=1"
           Environment="UPLOADS_BUCKET=${UploadsBucket}"
           Environment="BATCH_DEPLOY_VERSION=${BatchDeployVersion}"
 
+          # Wait for GPU marker (in case boot ordering races)
           ExecStartPre=/bin/bash -lc 'until [ -f /var/lib/motiv8/nvidia-ready ]; do echo "waiting for GPU readiness..."; sleep 5; done'
-          ExecStartPre=/usr/local/sbin/motiv8-batch-prep.sh
-          ExecStart=/bin/bash -lc /app/batch/run-batch.sh
+          # Fail fast if app isn’t provisioned
+          ExecStartPre=/bin/bash -lc 'test -x /opt/motiv8-be/run-batch-job.sh'
+          ExecStartPre=/bin/bash -lc 'test -x /opt/motiv8-be/venv/bin/python'
+
+          ExecStart=/bin/bash -lc '/opt/motiv8-be/run-batch-job.sh'
 
           StandardOutput=journal+console
           StandardError=journal+console
@@ -854,27 +814,50 @@ Resources:
           WantedBy=multi-user.target
           SVCEOF
 
-          # --------------------------------------------------------------------
-          # 3) Enable and run batch job
-          #    - If first boot triggers reboot, batch will run on the next boot.
-          # --------------------------------------------------------------------
           systemctl daemon-reload
           systemctl enable motiv8-batch.service
-          if ! systemctl start motiv8-batch.service; then
-            echo "WARNING: motiv8-batch failed to start; leaving unit installed for manual retry"
-          fi
 
-          # --------------------------------------------------------------------
-          # 4) CloudFormation signal
-          #    - Signal success after services are installed/enabled.
-          # --------------------------------------------------------------------
+          # Mark provisioning done
+          date -u > /var/lib/motiv8/provisioned
+
+          # Signal CloudFormation success (only after everything installed)
+          echo "[provision] signaling CloudFormation..."
           /opt/aws/bin/cfn-signal \
             -e 0 \
             --stack ${AWS::StackName} \
-            --resource BatchInstance3 \
+            --resource BatchInstance4 \
             --region ${AWS::Region}
 
+          echo "[provision] done."
+          PROV_SCRIPT
+          chmod +x /usr/local/sbin/motiv8-provision.sh
 
+          cat > /etc/systemd/system/motiv8-provision.service <<'PROV_SVC'
+          [Unit]
+          Description=motiv8 post-GPU provisioning (runs once)
+          After=network-online.target cloud-final.service motiv8-gpu-bootstrap.service
+          Wants=network-online.target cloud-final.service
+          ConditionPathExists=/var/lib/motiv8/nvidia-ready
+          ConditionPathExists=!/var/lib/motiv8/provisioned
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/motiv8-provision.sh
+
+          [Install]
+          WantedBy=multi-user.target
+          PROV_SVC
+
+          # Enable both units
+          systemctl daemon-reload
+          systemctl enable motiv8-gpu-bootstrap.service
+          systemctl enable motiv8-provision.service
+
+          # Kick off GPU bootstrap on first boot (if it runs it will reboot)
+          systemctl start motiv8-gpu-bootstrap.service || true
+
+          # Also try to start provision (it will no-op until nvidia-ready exists)
+          systemctl start motiv8-provision.service || true
 
   # ==========================================================
   # Lambda Function for Starting Batch Instance
@@ -889,7 +872,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          BATCH_INSTANCE_ID: !Ref BatchInstance3
+          BATCH_INSTANCE_ID: !Ref BatchInstance4
       Code:
         ZipFile: |
           import boto3
@@ -1146,4 +1129,4 @@ Outputs:
 
   BatchInstanceId:
     Description: Batch Instance ID
-    Value: !Ref BatchInstance3
+    Value: !Ref BatchInstance4
