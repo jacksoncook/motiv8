@@ -27,6 +27,7 @@ function DailyMotivation() {
   const [motivationData, setMotivationData] = useState<DailyMotivationData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -34,6 +35,7 @@ function DailyMotivation() {
     const fetchDailyMotivation = async () => {
       setLoading(true);
       setError(null);
+      setImageLoaded(false);
 
       try {
         const token = localStorage.getItem('auth_token');
@@ -107,10 +109,13 @@ function DailyMotivation() {
 
         {!loading && motivationData && (
           <div className="motivation-image-container">
+            {!imageLoaded && <div className="image-loading-placeholder" />}
             <img
               src={`${API_BASE_URL}/api/generated/${motivationData.filename}?token=${localStorage.getItem('auth_token')}`}
               alt="Daily motivation"
               className="motivation-image"
+              onLoad={() => setImageLoaded(true)}
+              style={{ display: imageLoaded ? 'block' : 'none' }}
             />
             <div className="generated-timestamp">
               {new Date(motivationData.generated_at_millis).toLocaleString()}

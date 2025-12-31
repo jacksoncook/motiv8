@@ -35,6 +35,7 @@ function ImageUpload() {
   const [currentSelfieUrl, setCurrentSelfieUrl] = useState<string | null>(null);
   const [canGenerate, setCanGenerate] = useState(false);
   const [isProduction, setIsProduction] = useState(true);
+  const [selfieLoaded, setSelfieLoaded] = useState(false);
 
   // Check if on-demand generation is enabled and get environment
   useEffect(() => {
@@ -57,9 +58,11 @@ function ImageUpload() {
   useEffect(() => {
     if (user?.has_selfie && user.selfie_filename) {
       const token = localStorage.getItem('auth_token');
+      setSelfieLoaded(false);
       setCurrentSelfieUrl(`${API_BASE_URL}/api/selfie/${user.selfie_filename}?token=${token}`);
     } else {
       setCurrentSelfieUrl(null);
+      setSelfieLoaded(false);
     }
   }, [user]);
 
@@ -189,7 +192,14 @@ function ImageUpload() {
             </div>
           </div>
           <div className="preview-section">
-            <img src={currentSelfieUrl} alt="Your selfie" className="preview-image" />
+            {!selfieLoaded && <div className="selfie-loading-placeholder" />}
+            <img
+              src={currentSelfieUrl}
+              alt="Your selfie"
+              className="preview-image"
+              onLoad={() => setSelfieLoaded(true)}
+              style={{ display: selfieLoaded ? 'block' : 'none' }}
+            />
           </div>
 
           <div className="upload-section">
