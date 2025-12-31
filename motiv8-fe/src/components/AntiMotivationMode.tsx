@@ -51,25 +51,24 @@ function AntiMotivationMode() {
 
   return (
     <div className="anti-motivation-container">
-      <div className="header-container">
-        <h2>
-          <span className="header-with-tooltip">
-            Shame mode
-            <div className="tooltip-container">
-              <span className="info-icon">ⓘ</span>
-              <div className="tooltip-content">
-                When enabled, you will receive harrowing images of what would happen if you skipped your daily workout.
-              </div>
-            </div>
-          </span>
-          <input
-            type="checkbox"
-            checked={antiMotivationMode}
-            onChange={handleToggle}
-            disabled={saving}
-            className="toggle-checkbox"
-          />
-        </h2>
+      <div className="header-with-tooltip">
+        <h2>Shame mode</h2>
+        <div className="tooltip-container">
+          <span className="info-icon">ⓘ</span>
+          <div className="tooltip-content">
+            When enabled, you will receive harrowing images of what would happen if you skipped your daily workout.
+          </div>
+        </div>
+      </div>
+
+      <div className="toggle-section">
+        <input
+          type="checkbox"
+          checked={antiMotivationMode}
+          onChange={handleToggle}
+          disabled={saving}
+          className="toggle-checkbox"
+        />
       </div>
 
       {error && (
