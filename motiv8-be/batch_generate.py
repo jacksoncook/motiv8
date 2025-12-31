@@ -312,6 +312,31 @@ def main():
             print(f"Found {len(workout_users)} users with {today} as workout day", flush=True)
             logger.info(f"Found {len(workout_users)} users with {today} as workout day")
 
+            # Filter out users who already have an image generated today
+            # (only when not using email filter)
+            today_date = date.today()
+            users_with_images_today = set(
+                db.query(GeneratedImage.user_id)
+                .filter(GeneratedImage.generation_date == today_date)
+                .distinct()
+                .all()
+            )
+            users_with_images_today = {user_id[0] for user_id in users_with_images_today}
+
+            original_count = len(workout_users)
+            workout_users = [
+                user for user in workout_users
+                if user.id not in users_with_images_today
+            ]
+            skipped_count = original_count - len(workout_users)
+
+            if skipped_count > 0:
+                print(f"Skipped {skipped_count} user(s) who already have an image generated today", flush=True)
+                logger.info(f"Skipped {skipped_count} user(s) who already have an image generated today")
+
+            print(f"Processing {len(workout_users)} user(s) without images generated today", flush=True)
+            logger.info(f"Processing {len(workout_users)} user(s) without images generated today")
+
         if not workout_users:
             print("No users to process today. Exiting.", flush=True)
             logger.info("No users to process today. Exiting.")
