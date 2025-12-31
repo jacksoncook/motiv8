@@ -51,9 +51,8 @@ function AntiMotivationMode() {
 
   return (
     <div className="anti-motivation-container">
-      <h2>Anti-motivation mode</h2>
-
-      <div className="toggle-container">
+      <div className="header-container">
+        <h2>Anti-motivation mode</h2>
         <label className="toggle-label">
           <input
             type="checkbox"

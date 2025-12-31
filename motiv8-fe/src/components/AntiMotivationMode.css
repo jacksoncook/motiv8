@@ -9,10 +9,17 @@
   box-sizing: border-box;
 }
 
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
 .anti-motivation-container h2 {
   color: #646cff;
-  margin: 0 0 1rem 0;
-  text-align: center;
+  margin: 0;
   font-size: 1.5rem;
 }
 
@@ -22,12 +29,6 @@
   text-align: center;
   margin: 0 0 1.5rem 0;
   line-height: 1.5;
-}
-
-.toggle-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .toggle-label {
