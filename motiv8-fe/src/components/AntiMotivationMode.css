@@ -149,3 +149,24 @@
   font-size: 0.9rem;
   text-align: center;
 }
+
+/* Mobile tooltip positioning */
+@media (max-width: 768px) {
+  .tooltip-content {
+    bottom: auto;
+    left: auto;
+    right: auto;
+    top: 50%;
+    transform: translate(calc(-100% - 12px), -50%);
+    width: 240px;
+  }
+
+  .tooltip-content::after {
+    top: 50%;
+    left: 100%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-left-color: #213547;
+    border-top-color: transparent;
+  }
+}
