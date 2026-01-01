@@ -187,7 +187,7 @@ function ImageUpload() {
             <div className="tooltip-container">
               <span className="info-icon">ⓘ</span>
               <div className="tooltip-content">
-                Your selfie will be used to generate private motivational images with your personal likeness. For best results, upload an image that contains only your face, preferably a selfie. If other faces are present in the image, those faces may be chosen for the likeness instead of yours.
+                Your selfie will be used to generate private motivational images with your personal likeness. For best results, upload an image that contains only your face, preferably a selfie.
               </div>
             </div>
           </div>
@@ -248,7 +248,7 @@ function ImageUpload() {
             <div className="tooltip-container">
               <span className="info-icon">ⓘ</span>
               <div className="tooltip-content">
-                Your selfie will be used to generate private motivational images with your personal likeness. For best results, upload an image that contains only your face, preferably a selfie. If other faces are present in the image, those faces may be chosen for the likeness instead of yours.
+                Your selfie will be used to generate private motivational images with your personal likeness. For best results, upload an image that contains only your face, preferably a selfie.
               </div>
             </div>
           </div>
