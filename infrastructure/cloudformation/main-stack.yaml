@@ -7,28 +7,6 @@ Parameters:
     Default: production
     Description: Environment name (production, staging, etc.)
 
-  WebAppInstanceType:
-    Type: String
-    Default: t3.small
-    Description: EC2 instance type for web application
-    AllowedValues:
-      - t3.micro
-      - t3.small
-      - t3.medium
-
-  BatchInstanceType:
-    Type: String
-    Default: g4dn.xlarge
-    Description: EC2 instance type for batch processing
-    AllowedValues:
-      - t3.large
-      - t3.xlarge
-      - t3.2xlarge
-      - g4dn.xlarge
-      - g4dn.2xlarge
-      - c6i.xlarge
-      - c6i.2xlarge
-
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
     Description: EC2 Key Pair for SSH access
