@@ -62,15 +62,30 @@ def get_prompts_for_user(user: User):
     Returns:
         tuple: (prompt, negative_prompt)
     """
+    # Seven wonders of the world - one for each day of the week
+    seven_wonders = [
+        "the Great Pyramid of Giza",
+        "the Colosseum",
+        "Christ the Redeemer statue",
+        "Machu Picchu",
+        "the Taj Mahal",
+        "the Great Wall of China",
+        "Petra"
+    ]
+
+    # Select wonder based on day of week (0=Monday, 6=Sunday)
+    day_of_week = datetime.now().weekday()
+    wonder = seven_wonders[day_of_week % len(seven_wonders)]
+
     gender_term = "female" if user.gender == "female" else "male"
 
     if user.anti_motivation_mode:
         # Anti-motivation prompt: obese, hairy, and unhealthy
-        prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, highly detailed, 8k, photorealistic"
+        prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, standing in front of {wonder}, highly detailed, 8k, photorealistic"
         negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic"
     else:
         # Regular motivation prompt: muscular and fit
-        prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, highly detailed, 8k, photorealistic"
+        prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique standing in front of {wonder}, highly detailed, 8k, photorealistic"
         negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality"
 
     return prompt, negative_prompt
