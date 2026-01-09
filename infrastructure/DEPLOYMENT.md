@@ -77,6 +77,10 @@ Create `infrastructure/parameters.json`:
     "ParameterValue": "motiv8me.io"
   },
   {
+    "ParameterKey": "ApiDomainName",
+    "ParameterValue": "api.motiv8me.io"
+  },
+  {
     "ParameterKey": "GoogleClientId",
     "ParameterValue": "YOUR_GOOGLE_CLIENT_ID"
   },
