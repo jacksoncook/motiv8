@@ -81,7 +81,12 @@ def get_prompts_for_user(user: User):
 
     if user.anti_motivation_mode:
         # Anti-motivation prompt: obese, hairy, and unhealthy
-        prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, standing in front of {wonder}, highly detailed, 8k, photorealistic"
+        if user.gender == "female":
+            # Topless with bra for females
+            prompt = f"full body photo of an obese, overweight, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, topless wearing only a bra, standing in front of {wonder}, highly detailed, 8k, photorealistic"
+        else:
+            # Shirtless for males
+            prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, shirtless, standing in front of {wonder}, highly detailed, 8k, photorealistic"
         negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic"
     else:
         # Regular motivation prompt: muscular and fit
