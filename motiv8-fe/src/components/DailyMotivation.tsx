@@ -19,6 +19,46 @@ const getLocalDateString = (date: Date = new Date()): string => {
   return `${year}-${month}-${day}`;
 };
 
+// Helper function to get next workout day and localized time
+const getNextWorkoutMessage = (workoutDays: Record<string, boolean>): string => {
+  const dayOrder = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  // Get today's day index (0 = Sunday, 6 = Saturday)
+  const today = new Date().getDay();
+
+  // Find the next workout day
+  let nextDayIndex = -1;
+  for (let i = 1; i <= 7; i++) {
+    const checkDay = (today + i) % 7;
+    if (workoutDays[dayOrder[checkDay]]) {
+      nextDayIndex = checkDay;
+      break;
+    }
+  }
+
+  if (nextDayIndex === -1) {
+    return "No upcoming workout days scheduled";
+  }
+
+  // Create a date object for next workout day at 15:00 UTC
+  const nextWorkoutDate = new Date();
+  const daysUntilNext = (nextDayIndex - today + 7) % 7 || 7;
+  nextWorkoutDate.setDate(nextWorkoutDate.getDate() + daysUntilNext);
+  nextWorkoutDate.setUTCHours(15, 0, 0, 0);
+
+  // Format the localized time
+  const timeString = nextWorkoutDate.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  const dayName = dayNames[nextDayIndex];
+
+  return `Expect your next motivation on ${dayName} around ${timeString}`;
+};
+
 function DailyMotivation() {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -78,16 +118,11 @@ function DailyMotivation() {
       <div className="daily-motivation-section">
         <h2>Daily motivation</h2>
 
-        <div className="date-selector">
-          <label htmlFor="motivation-date">Select date:</label>
-          <input
-            type="date"
-            id="motivation-date"
-            value={selectedDate}
-            onChange={handleDateChange}
-            max={getLocalDateString()}
-          />
-        </div>
+        {user?.workout_days && (
+          <div className="next-workout-box">
+            {getNextWorkoutMessage(user.workout_days)}
+          </div>
+        )}
 
         {loading && (
           <div className="motivation-image-container">
@@ -117,11 +152,19 @@ function DailyMotivation() {
               onLoad={() => setImageLoaded(true)}
               style={{ display: imageLoaded ? 'block' : 'none' }}
             />
-            <div className="generated-timestamp">
-              {new Date(motivationData.generated_at_millis).toLocaleString()}
-            </div>
           </div>
         )}
+
+        <div className="date-selector">
+          <label htmlFor="motivation-date">Select date:</label>
+          <input
+            type="date"
+            id="motivation-date"
+            value={selectedDate}
+            onChange={handleDateChange}
+            max={getLocalDateString()}
+          />
+        </div>
       </div>
     </div>
   );
