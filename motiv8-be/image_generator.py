@@ -161,15 +161,15 @@ class ImageGenerator:
                 negative_prompt=negative_prompt,
                 face_image=face_image,          # Original face image for CLIP
                 faceid_embeds=faceid_embeds,    # InsightFace embedding
-                shortcut=True,                  # Use shortcut mode
-                s_scale=0.2,                    # Structure scale
+                shortcut=False,                 # Use full IP-Adapter
+                s_scale=1.0,                    # Structure scale
                 num_samples=1,
                 width=512,
                 height=768,                     # Portrait aspect ratio
                 num_inference_steps=num_inference_steps,
-                guidance_scale=5.5,
+                guidance_scale=guidance_scale,
                 seed=seed,                      # Pass seed directly (None = random)
-                scale=0.75,                     # IP-Adapter influence
+                scale=scale,                    # IP-Adapter influence
             )
 
             logger.info("Image generated successfully")
