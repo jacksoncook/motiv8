@@ -156,7 +156,6 @@ function DailyMotivation() {
         )}
 
         <div className="date-selector">
-          <label htmlFor="motivation-date">Select date:</label>
           <input
             type="date"
             id="motivation-date"
