@@ -104,12 +104,6 @@ function WorkoutDays() {
           <strong>Error:</strong> {error}
         </div>
       )}
-
-      {saving && (
-        <div className="saving-message">
-          Saving...
-        </div>
-      )}
     </div>
   );
 }
