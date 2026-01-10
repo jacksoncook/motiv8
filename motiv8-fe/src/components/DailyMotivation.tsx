@@ -107,7 +107,7 @@ function DailyMotivation() {
     };
 
     fetchDailyMotivation();
-  }, [user, selectedDate]);
+  }, [selectedDate]);
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedDate(e.target.value);

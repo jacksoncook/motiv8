@@ -64,7 +64,7 @@ function ImageUpload() {
       setCurrentSelfieUrl(null);
       setSelfieLoaded(false);
     }
-  }, [user]);
+  }, [user?.has_selfie, user?.selfie_filename]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
