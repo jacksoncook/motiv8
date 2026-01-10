@@ -23,7 +23,7 @@ interface GenerateResponse {
 }
 
 function ImageUpload() {
-  const { user, refreshUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
@@ -112,8 +112,11 @@ function ImageUpload() {
       setSelectedFile(null);
       setPreviewUrl(null);
 
-      // Refresh user data to get updated selfie information
-      await refreshUser();
+      // Update user data in context with new selfie information
+      updateUser({
+        has_selfie: true,
+        selfie_filename: response.data.filename,
+      });
 
       // Update current selfie URL after successful upload
       if (response.data.filename) {

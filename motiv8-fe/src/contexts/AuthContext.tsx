@@ -23,6 +23,7 @@ interface AuthContextType {
   logout: () => void;
   setToken: (token: string) => void;
   refreshUser: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -94,8 +95,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchUser(token);
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    setUser((prevUser) => {
+      if (!prevUser) return prevUser;
+      return { ...prevUser, ...updates };
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, setToken, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, setToken, refreshUser, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

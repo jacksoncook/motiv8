@@ -17,7 +17,7 @@ const DAYS_OF_WEEK = [
 ];
 
 function WorkoutDays() {
-  const { user, refreshUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const [workoutDays, setWorkoutDays] = useState<Record<string, boolean>>({
     monday: false,
     tuesday: false,
@@ -59,8 +59,8 @@ function WorkoutDays() {
         }
       );
 
-      // Refresh user data to stay in sync
-      await refreshUser();
+      // Update user data in context to stay in sync
+      updateUser({ workout_days: newWorkoutDays });
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to update workout days');
       // Revert on error

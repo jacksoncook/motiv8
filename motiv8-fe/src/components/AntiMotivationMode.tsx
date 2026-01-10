@@ -7,7 +7,7 @@ const API_BASE_URL =
   (import.meta as any).env?.VITE_API_BASE_URL || "https://api.motiv8me.io";
 
 function AntiMotivationMode() {
-  const { user, refreshUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const [antiMotivationMode, setAntiMotivationMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +38,8 @@ function AntiMotivationMode() {
         }
       );
 
-      // Refresh user data to stay in sync
-      await refreshUser();
+      // Update user data in context to stay in sync
+      updateUser({ anti_motivation_mode: newMode });
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to update anti-motivation mode');
       // Revert on error
