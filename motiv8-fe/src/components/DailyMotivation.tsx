@@ -56,7 +56,7 @@ const getNextWorkoutMessage = (workoutDays: Record<string, boolean>): string => 
 
   const dayName = dayNames[nextDayIndex];
 
-  return `Expect your next motivation on ${dayName} around ${timeString}`;
+  return `Next motivation arriving:\n${dayName} at ${timeString}`;
 };
 
 function DailyMotivation() {

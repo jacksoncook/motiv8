@@ -28,13 +28,14 @@
   background-color: #fff;
   border: 2px solid #646cff;
   border-radius: 8px;
-  padding: 1rem;
+  padding: 0.5rem 1rem;
   margin-bottom: 1.5rem;
   text-align: center;
   color: #213547;
   font-size: 1rem;
   font-weight: 500;
   box-shadow: 0 2px 4px rgba(100, 108, 255, 0.15);
+  white-space: pre-line;
 }
 
 .date-selector {
