@@ -85,7 +85,12 @@ def get_prompts_for_user(user: User):
         negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic"
     else:
         # Regular motivation prompt: muscular and fit
-        prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique standing in front of {wonder}, highly detailed, 8k, photorealistic"
+        if user.gender == "female":
+            # Toned body in swimsuit for females
+            prompt = f"professional full body photo of a {gender_term} with toned athletic physique in a swimsuit standing in front of {wonder}, highly detailed, 8k, photorealistic"
+        else:
+            # Bodybuilder physique for males
+            prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique standing in front of {wonder}, highly detailed, 8k, photorealistic"
         negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality"
 
     return prompt, negative_prompt
