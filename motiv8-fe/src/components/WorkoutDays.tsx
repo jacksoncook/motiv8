@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import Toast from './Toast';
 import './WorkoutDays.css';
 
 const API_BASE_URL =
@@ -29,6 +30,7 @@ function WorkoutDays() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
 
   // Load workout days from user data
   useEffect(() => {
@@ -61,6 +63,9 @@ function WorkoutDays() {
 
       // Update user data in context to stay in sync
       updateUser({ workout_days: newWorkoutDays });
+
+      // Show success toast
+      setShowToast(true);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to update workout days');
       // Revert on error
@@ -103,6 +108,15 @@ function WorkoutDays() {
         <div className="error-message">
           <strong>Error:</strong> {error}
         </div>
+      )}
+
+      {showToast && (
+        <Toast
+          message="Settings saved"
+          type="success"
+          duration={1500}
+          onClose={() => setShowToast(false)}
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import Toast from './Toast';
 import './ImageUpload.css';
 
 const API_BASE_URL =
@@ -34,6 +35,7 @@ function ImageUpload() {
   const [canGenerate, setCanGenerate] = useState(false);
   const [isProduction, setIsProduction] = useState(true);
   const [selfieLoaded, setSelfieLoaded] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   // Check if on-demand generation is enabled and get environment
   useEffect(() => {
@@ -97,6 +99,9 @@ function ImageUpload() {
       );
 
       setUploadResult(response.data);
+
+      // Show success toast
+      setShowToast(true);
 
       // Update user data in context with new selfie information
       updateUser({
@@ -248,28 +253,32 @@ function ImageUpload() {
         </div>
       )}
 
-      {uploadResult && (
-        <div className="message success">
-          <h3>Selfie uploaded successfully!</h3>
-          {!isProduction && (
-            <>
-              <p>{uploadResult.message}</p>
-              <p><strong>Original filename:</strong> {uploadResult.original_filename}</p>
-              <p><strong>File size:</strong> {(uploadResult.size_bytes / 1024).toFixed(2)} KB</p>
-              <p className="info-text">Face extraction will occur during the next batch processing run.</p>
-            </>
-          )}
+      {showToast && (
+        <Toast
+          message="Selfie uploaded successfully!"
+          type="success"
+          duration={5000}
+          onClose={() => setShowToast(false)}
+        />
+      )}
 
-          {canGenerate && user?.email === 'jacksoncook73@gmail.com' && (
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="upload-button generate-button"
-            >
-              {generating ? 'Generating muscular body image...' : 'Generate muscular body image'}
-            </button>
-          )}
+      {uploadResult && !isProduction && (
+        <div className="message success">
+          <p>{uploadResult.message}</p>
+          <p><strong>Original filename:</strong> {uploadResult.original_filename}</p>
+          <p><strong>File size:</strong> {(uploadResult.size_bytes / 1024).toFixed(2)} KB</p>
+          <p className="info-text">Face extraction will occur during the next batch processing run.</p>
         </div>
+      )}
+
+      {uploadResult && canGenerate && user?.email === 'jacksoncook73@gmail.com' && (
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          className="upload-button generate-button"
+        >
+          {generating ? 'Generating muscular body image...' : 'Generate muscular body image'}
+        </button>
       )}
 
       {generatedImageUrl && (
