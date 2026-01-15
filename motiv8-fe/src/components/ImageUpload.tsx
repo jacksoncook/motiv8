@@ -24,11 +24,9 @@ interface GenerateResponse {
 
 function ImageUpload() {
   const { user, updateUser } = useAuth();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateResult, setGenerateResult] = useState<GenerateResponse | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
@@ -66,35 +64,25 @@ function ImageUpload() {
     }
   }, [user?.has_selfie, user?.selfie_filename]);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
       setError(null);
       setUploadResult(null);
 
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      // Automatically upload the file
+      await uploadFile(file);
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      setError('Please select a file first');
-      return;
-    }
-
+  const uploadFile = async (file: File) => {
     setUploading(true);
     setError(null);
     setUploadResult(null);
 
     try {
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      formData.append('file', file);
 
       const token = localStorage.getItem('auth_token');
       const response = await axios.post<UploadResponse>(
@@ -109,8 +97,6 @@ function ImageUpload() {
       );
 
       setUploadResult(response.data);
-      setSelectedFile(null);
-      setPreviewUrl(null);
 
       // Update user data in context with new selfie information
       updateUser({
@@ -214,22 +200,8 @@ function ImageUpload() {
               id="file-input"
             />
             <label htmlFor="file-input" className="file-label">
-              {selectedFile ? selectedFile.name : 'Choose an image'}
+              {uploading ? 'Uploading...' : 'Choose an image'}
             </label>
-
-            {previewUrl && (
-              <div className="preview-section">
-                <img src={previewUrl} alt="Preview" className="preview-image" />
-              </div>
-            )}
-
-            <button
-              onClick={handleUpload}
-              disabled={!selectedFile || uploading}
-              className="upload-button"
-            >
-              {uploading ? 'Uploading...' : 'Update selfie'}
-            </button>
           </div>
 
           {canGenerate && user?.email === 'jacksoncook73@gmail.com' && (
@@ -264,22 +236,8 @@ function ImageUpload() {
               id="file-input-initial"
             />
             <label htmlFor="file-input-initial" className="file-label">
-              {selectedFile ? selectedFile.name : 'Choose an image'}
+              {uploading ? 'Uploading...' : 'Choose an image'}
             </label>
-
-            {previewUrl && (
-              <div className="preview-section">
-                <img src={previewUrl} alt="Preview" className="preview-image" />
-              </div>
-            )}
-
-            <button
-              onClick={handleUpload}
-              disabled={!selectedFile || uploading}
-              className="upload-button"
-            >
-              {uploading ? 'Uploading...' : 'Upload selfie'}
-            </button>
           </div>
         </div>
       )}
