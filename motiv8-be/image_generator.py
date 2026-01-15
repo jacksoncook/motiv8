@@ -100,7 +100,7 @@ class ImageGenerator:
         self,
         embedding_path: str,
         image_path: Optional[str] = None,
-        prompt: str = "professional full body photo of a person with extremely muscular bodybuilder physique standing in front of one of the seven wonders of the world, highly detailed, 8k, photorealistic",
+        prompt: str = "professional full body photo of a person with extremely muscular bodybuilder physique, headgear, standing on the surface of a planet in our solar system, highly detailed, 8k, photorealistic",
         negative_prompt: str = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality",
         num_inference_steps: int = 30,
         guidance_scale: float = 7.5,
