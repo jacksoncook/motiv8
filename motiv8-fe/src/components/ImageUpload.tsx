@@ -257,7 +257,7 @@ function ImageUpload() {
         <Toast
           message="Selfie uploaded successfully!"
           type="success"
-          duration={5000}
+          duration={2500}
           onClose={() => setShowToast(false)}
         />
       )}

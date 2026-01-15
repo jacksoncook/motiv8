@@ -83,7 +83,7 @@ function AntiMotivationMode() {
         <Toast
           message="Settings saved"
           type="success"
-          duration={1500}
+          duration={2500}
           onClose={() => setShowToast(false)}
         />
       )}
