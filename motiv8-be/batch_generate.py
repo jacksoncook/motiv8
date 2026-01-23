@@ -62,21 +62,21 @@ def get_prompts_for_user(user: User):
     Returns:
         tuple: (prompt, negative_prompt)
     """
-    # Planets of our solar system (Mercury through Neptune, excluding Earth)
-    # One for each day of the week (7 planets for 7 days)
-    planets = [
-        "Mercury with its cratered surface and the Sun looming large in the sky",
-        "Venus with its thick orange atmosphere and volcanic landscape",
-        "Mars with its red desert and distant Olympus Mons volcano",
-        "Jupiter with its swirling cloud bands and the Great Red Spot visible in the sky",
-        "Saturn with its magnificent rings stretching across the horizon",
-        "Uranus with its pale blue-green atmosphere and faint rings",
-        "Neptune with its deep blue atmosphere and dark storm systems"
+    # Seven Natural Wonders of the World
+    # One for each day of the week (7 wonders for 7 days)
+    wonders = [
+        "Aurora Borealis (Northern Lights) with vibrant green and purple lights dancing across the arctic sky",
+        "Grand Canyon with its layered red rock formations and vast desert landscape",
+        "Great Barrier Reef with crystal clear turquoise waters and colorful coral visible below",
+        "Mount Everest with snow-covered peaks piercing through clouds",
+        "Victoria Falls with massive waterfalls and mist rising into the sky",
+        "Paricutin Volcano with volcanic landscape and ash plumes in the distance",
+        "Harbor of Rio de Janeiro with Sugarloaf Mountain and Christ the Redeemer visible in the background"
     ]
 
-    # Select planet based on day of week (0=Monday, 6=Sunday)
+    # Select wonder based on day of week (0=Monday, 6=Sunday)
     day_of_week = datetime.now().weekday()
-    planet = planets[day_of_week % len(planets)]
+    wonder = wonders[day_of_week % len(wonders)]
 
     gender_term = "female" if user.gender == "female" else "male"
 
@@ -84,19 +84,19 @@ def get_prompts_for_user(user: User):
         # Anti-motivation prompt: obese, hairy, and unhealthy
         if user.gender == "female":
             # In underwear for females
-            prompt = f"full body photo of an obese, overweight, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in her underwear, headgear, standing on the surface of {planet}, highly detailed, 8k, photorealistic"
+            prompt = f"full body photo of an obese, overweight, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in her underwear, at {wonder}, highly detailed, 8k, photorealistic"
         else:
             # In underwear for males
-            prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in his underwear, headgear, standing on the surface of {planet}, highly detailed, 8k, photorealistic"
+            prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in his underwear, at {wonder}, highly detailed, 8k, photorealistic"
         negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic, nude, naked, nudity, exposed genitals"
     else:
         # Regular motivation prompt: muscular and fit
         if user.gender == "female":
-            # Toned body in swimsuit for females
-            prompt = f"professional full body photo of a {gender_term} with toned athletic physique in a swimsuit, headgear, standing on the surface of {planet}, highly detailed, 8k, photorealistic"
+            # Toned body in two piece for females
+            prompt = f"professional full body photo of a {gender_term} with toned athletic physique in a two piece, at {wonder}, highly detailed, 8k, photorealistic"
         else:
             # Bodybuilder physique for males
-            prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, headgear, standing on the surface of {planet}, highly detailed, 8k, photorealistic"
+            prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, at {wonder}, highly detailed, 8k, photorealistic"
         negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
 
     return prompt, negative_prompt
