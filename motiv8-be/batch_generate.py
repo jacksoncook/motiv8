@@ -62,21 +62,21 @@ def get_prompts_for_user(user: User):
     Returns:
         tuple: (prompt, negative_prompt)
     """
-    # Seven Natural Wonders of the World
-    # One for each day of the week (7 wonders for 7 days)
-    wonders = [
-        "Aurora Borealis (Northern Lights) with vibrant green and purple lights dancing across the arctic sky",
-        "Grand Canyon with its layered red rock formations and vast desert landscape",
-        "Great Barrier Reef with crystal clear turquoise waters and colorful coral visible below",
-        "Mount Everest with snow-covered peaks piercing through clouds",
-        "Victoria Falls with massive waterfalls and mist rising into the sky",
-        "Paricutin Volcano with volcanic landscape and ash plumes in the distance",
-        "Harbor of Rio de Janeiro with Sugarloaf Mountain and Christ the Redeemer visible in the background"
+    # Seven Continents
+    # One for each day of the week (7 continents for 7 days)
+    continents = [
+        "Africa with golden savanna grasslands, acacia trees, and distant mountains under a warm sunset sky",
+        "Antarctica with pristine white ice sheets, towering icebergs, and crisp polar skies",
+        "Asia with misty mountain peaks, ancient temples, and lush green rice terraces",
+        "Europe with rolling alpine meadows, historic stone architecture, and dramatic coastal cliffs",
+        "North America with vast forests, snow-capped mountain ranges, and clear blue lakes",
+        "Australia (Oceania) with red desert outback, unique rock formations, and bright blue coastal waters",
+        "South America with dense rainforest canopy, dramatic waterfalls, and vibrant tropical landscapes"
     ]
 
-    # Select wonder based on day of week (0=Monday, 6=Sunday)
+    # Select continent based on day of week (0=Monday, 6=Sunday)
     day_of_week = datetime.now().weekday()
-    wonder = wonders[day_of_week % len(wonders)]
+    continent = continents[day_of_week % len(continents)]
 
     gender_term = "female" if user.gender == "female" else "male"
 
@@ -84,19 +84,19 @@ def get_prompts_for_user(user: User):
         # Anti-motivation prompt: obese, hairy, and unhealthy
         if user.gender == "female":
             # In underwear for females
-            prompt = f"full body photo of an obese, overweight, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in her underwear, at {wonder}, highly detailed, 8k, photorealistic"
+            prompt = f"full body photo of an obese, overweight, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in her underwear, at {continent}, highly detailed, 8k, photorealistic"
         else:
             # In underwear for males
-            prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in his underwear, at {wonder}, highly detailed, 8k, photorealistic"
+            prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in his underwear, at {continent}, highly detailed, 8k, photorealistic"
         negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic, nude, naked, nudity, exposed genitals"
     else:
         # Regular motivation prompt: muscular and fit
         if user.gender == "female":
             # Toned body in two piece for females
-            prompt = f"professional full body photo of a {gender_term} with toned athletic physique in a two piece, at {wonder}, highly detailed, 8k, photorealistic"
+            prompt = f"professional full body photo of a {gender_term} with toned athletic physique in a two piece, at {continent}, highly detailed, 8k, photorealistic"
         else:
             # Bodybuilder physique for males
-            prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, at {wonder}, highly detailed, 8k, photorealistic"
+            prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, at {continent}, highly detailed, 8k, photorealistic"
         negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
 
     return prompt, negative_prompt
