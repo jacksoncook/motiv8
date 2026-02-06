@@ -104,13 +104,13 @@ def get_prompts_for_user(user: User):
         mode_component = "bodybuilder with extremely muscular physique"
         negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
     elif mode == "furry":
-        # Furry mode: anthropomorphic animal with sexy furry body
+        # Furry mode: human with anthropomorphic furry body
         # Alternates through different animals based on day of year
         day_of_year = datetime.now().timetuple().tm_yday
-        furry_animals = ["kitty", "squirrel", "koala"]
+        furry_animals = ["wolf", "fox", "cat"]
         animal = furry_animals[day_of_year % len(furry_animals)]
-        mode_component = f"anthropomorphic {animal} with furry, sexy body"
-        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals, human"
+        mode_component = f"human with an anthropomorphic {animal}-style furry body"
+        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, lowres, worst quality, nude, naked, nudity, exposed genitals, animal face, animal head, snout, muzzle, whiskers, cartoon, anime, mask, helmet, human"
     else:
         # Default to toned if mode is invalid
         mode_component = "with toned athletic physique"

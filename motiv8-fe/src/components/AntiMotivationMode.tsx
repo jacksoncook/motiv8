@@ -27,7 +27,7 @@ const MODE_INFO: Record<Mode, { label: string; description: string; emoji: strin
   },
   furry: {
     label: 'Furry',
-    description: 'Get motivated with anthropomorphic animal images that rotate daily between kitty, squirrel, and koala.',
+    description: 'Get motivated with anthropomorphic furry images that rotate daily between wolf, fox, and cat.',
     emoji: '🐻',
   },
 };
