@@ -64,20 +64,20 @@ def get_prompts_for_user(user: User):
     Returns:
         tuple: (prompt, negative_prompt)
     """
-    # Seven Continents - One for each day of the week (7 continents for 7 days)
-    continents = [
-        "Africa with golden savanna grasslands, acacia trees, and distant mountains under a warm sunset sky",
-        "Antarctica with pristine white ice sheets, towering icebergs, and crisp polar skies",
-        "Asia with misty mountain peaks, ancient temples, and lush green rice terraces",
-        "Europe with rolling alpine meadows, historic stone architecture, and dramatic coastal cliffs",
-        "North America with vast forests, snow-capped mountain ranges, and clear blue lakes",
-        "Australia (Oceania) with red desert outback, unique rock formations, and bright blue coastal waters",
-        "South America with dense rainforest canopy, dramatic waterfalls, and vibrant tropical landscapes"
+    # Asian Cities - Cycling through iconic locations (7 cities for 7 days)
+    asian_cities = [
+        "Seoul, Korea with vibrant neon-lit skyscrapers, traditional hanok rooftops, and cherry blossoms along modern streets",
+        "Nara, Japan with ancient wooden temples, peaceful deer roaming through gardens, and traditional Japanese architecture",
+        "Tokyo, Japan with towering skyscrapers, bustling Shibuya crossing, and bright neon signs illuminating the streets",
+        "Taipei, Taiwan with Taipei 101 piercing the sky, night markets glowing with lanterns, and lush mountain backdrop",
+        "Beijing, China with the majestic Forbidden City, traditional imperial architecture, and red palace walls",
+        "Moscow, Russia with colorful onion domes of Saint Basil's Cathedral, Red Square, and snow-dusted architecture",
+        "Hiroshima, Japan with the iconic Atomic Bomb Dome by the river, Peace Memorial Park, and modern cityscape beyond"
     ]
 
-    # Select continent based on day of week (0=Monday, 6=Sunday)
+    # Select city based on day of week (0=Monday, 6=Sunday)
     day_of_week = datetime.now().weekday()
-    continent = continents[day_of_week % len(continents)]
+    city_background = asian_cities[day_of_week % len(asian_cities)]
 
     gender_term = "female" if user.gender == "female" else "male"
 
@@ -117,7 +117,7 @@ def get_prompts_for_user(user: User):
         negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
 
     # Background component
-    background_component = f"at {continent}, highly detailed, 8k, photorealistic"
+    background_component = f"at {city_background}, highly detailed, 8k, photorealistic"
 
     # Add "professional" prefix for non-shame modes
     if mode != "shame":
