@@ -1,6 +1,6 @@
 .anti-motivation-container {
   width: 100%;
-  padding: 1.5rem 2rem 1.5rem 2rem;
+  padding: 1rem 2rem;
   background-color: #faf9ff;
   border: 2px solid #ddd6fe;
   border-radius: 12px;
@@ -130,7 +130,6 @@
 }
 
 .mode-display {
-  margin-top: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -139,7 +138,7 @@
 .mode-button {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 1rem 1.5rem;
   background-color: #ffffff;
   border: 2px solid #ddd6fe;
@@ -164,20 +163,15 @@
   font-weight: 600;
   font-size: 1.1rem;
   color: #646cff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.mode-arrow {
-  color: #646cff;
-  font-size: 0.9rem;
+.mode-emoji {
+  font-size: 1.3rem;
 }
 
-.mode-description {
-  margin: 0;
-  padding: 0 0.5rem;
-  color: #666;
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
 
 .mode-options {
   margin-top: 0.5rem;
@@ -215,6 +209,9 @@
   font-size: 1rem;
   color: #646cff;
   margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .mode-option-description {

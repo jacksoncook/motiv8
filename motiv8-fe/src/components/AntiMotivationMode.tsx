@@ -9,22 +9,26 @@ const API_BASE_URL =
 
 type Mode = 'shame' | 'toned' | 'ripped' | 'furry';
 
-const MODE_INFO: Record<Mode, { label: string; description: string }> = {
+const MODE_INFO: Record<Mode, { label: string; description: string; emoji: string }> = {
   shame: {
     label: 'Shame',
     description: 'Receive harrowing images of what would happen if you skipped your daily workout.',
+    emoji: '💀',
   },
   toned: {
     label: 'Toned',
     description: 'Get motivated with images showing a fit, toned physique.',
+    emoji: '🦵',
   },
   ripped: {
     label: 'Ripped',
     description: 'Push yourself with images of a muscular, ripped physique.',
+    emoji: '💪',
   },
   furry: {
     label: 'Furry',
     description: 'Get motivated with anthropomorphic animal images that rotate daily between kitty, squirrel, and koala.',
+    emoji: '🐻',
   },
 };
 
@@ -79,27 +83,19 @@ function AntiMotivationMode() {
 
   return (
     <div className="anti-motivation-container">
-      <div className="header-with-tooltip">
-        <h2>Your mode</h2>
-        <div className="tooltip-container">
-          <span className="info-icon">ⓘ</span>
-          <div className="tooltip-content">
-            Choose the style of motivational images you'll receive to keep you on track with your workouts.
-          </div>
-        </div>
-      </div>
-
       {currentModeInfo && (
         <div className="mode-display">
           <button
             className="mode-button"
             onClick={() => setShowOptions(!showOptions)}
             disabled={saving}
+            title={currentModeInfo.description}
           >
-            <span className="mode-label">{currentModeInfo.label}</span>
-            <span className="mode-arrow">{showOptions ? '▲' : '▼'}</span>
+            <span className="mode-label">
+              <span className="mode-emoji">{currentModeInfo.emoji}</span>
+              {currentModeInfo.label} mode
+            </span>
           </button>
-          <p className="mode-description">{currentModeInfo.description}</p>
         </div>
       )}
 
@@ -114,7 +110,10 @@ function AntiMotivationMode() {
                 onClick={() => handleModeChange(m)}
                 disabled={saving}
               >
-                <span className="mode-option-label">{MODE_INFO[m].label}</span>
+                <span className="mode-option-label">
+                  <span className="mode-emoji">{MODE_INFO[m].emoji}</span>
+                  {MODE_INFO[m].label}
+                </span>
                 <span className="mode-option-description">{MODE_INFO[m].description}</span>
               </button>
             ))}
