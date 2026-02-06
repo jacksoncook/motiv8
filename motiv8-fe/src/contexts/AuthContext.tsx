@@ -14,6 +14,7 @@ interface User {
   gender: string | null;
   workout_days: Record<string, boolean>;
   anti_motivation_mode: boolean;
+  mode: string | null;
 }
 
 interface AuthContextType {

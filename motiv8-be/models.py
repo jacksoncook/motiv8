@@ -2,10 +2,19 @@
 Database models
 """
 
-from sqlalchemy import Column, String, DateTime, JSON, ForeignKey, Date, BigInteger, Boolean
+from sqlalchemy import Column, String, DateTime, JSON, ForeignKey, Date, BigInteger, Boolean, Enum
 from sqlalchemy.sql import func
 import uuid
+import enum
 from database import Base
+
+
+class ModeEnum(str, enum.Enum):
+    """Valid mode options for user motivation"""
+    SHAME = "shame"
+    TONED = "toned"
+    RIPPED = "ripped"
+    FURRY = "furry"
 
 
 class User(Base):
@@ -36,6 +45,11 @@ class User(Base):
     # Anti-motivation mode - if True, generate demotivational images
     anti_motivation_mode = Column(Boolean, nullable=False, default=False)
 
+    # Mode - determines the type of image generation
+    # Valid values are defined in ModeEnum: 'shame', 'toned', 'ripped'
+    # Using String instead of Enum for SQLite compatibility
+    mode = Column(String, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -52,6 +66,7 @@ class GeneratedImage(Base):
     s3_key = Column(String, nullable=False)  # S3 key (e.g., "generated_images/filename.png")
     generation_date = Column(Date, nullable=False, index=True)  # Date only (YYYY-MM-DD)
     generated_at_millis = Column(BigInteger, nullable=False)  # Epoch time in milliseconds
+    mode = Column(String, nullable=True)  # Mode used for generation: 'shame', 'toned', 'ripped', 'furry'
 
     def __repr__(self):
-        return f"<GeneratedImage(id={self.id}, user_id={self.user_id}, generation_date={self.generation_date})>"
+        return f"<GeneratedImage(id={self.id}, user_id={self.user_id}, generation_date={self.generation_date}, mode={self.mode})>"

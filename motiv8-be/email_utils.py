@@ -16,6 +16,25 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+
+def get_message_text_for_mode(mode: str) -> str:
+    """
+    Get the appropriate message text based on the user's mode.
+
+    Args:
+        mode: User's selected mode ('shame', 'toned', 'ripped', 'furry')
+
+    Returns:
+        Message text for the email
+    """
+    if mode == "shame":
+        return "This could be you"
+    elif mode == "furry":
+        return "Purrrrrfect"
+    else:  # toned or ripped
+        return "Get after it"
+
+
 # Email configuration from environment variables
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -31,14 +50,14 @@ SES_FROM_EMAIL = "no-reply@motiv8me.io"
 ses = boto3.client("ses", region_name=AWS_REGION)
 
 
-def send_motivation_email_ses(to_email: str, generated_image_path: str, anti_motivation_mode: bool = False) -> bool:
+def send_motivation_email_ses(to_email: str, generated_image_path: str, mode: str = "toned") -> bool:
     """
     Send a daily motivation email with the generated image using Amazon SES
 
     Args:
         to_email: Recipient email address
         generated_image_path: Path to the generated image file
-        anti_motivation_mode: If True, use anti-motivation message
+        mode: User's mode ('shame', 'toned', 'ripped', 'furry')
 
     Returns:
         True if email sent successfully, False otherwise
@@ -51,8 +70,8 @@ def send_motivation_email_ses(to_email: str, generated_image_path: str, anti_mot
         msg['To'] = to_email
         msg['Reply-To'] = 'support@motiv8me.io'
 
-        # Choose message based on anti-motivation mode
-        message_text = "This could be you" if anti_motivation_mode else "Get after it"
+        # Choose message based on mode
+        message_text = get_message_text_for_mode(mode)
 
         # Create plain text body
         text_body = f"Daily motivation: {message_text}\nhttps://motiv8me.io"
@@ -112,14 +131,14 @@ def send_motivation_email_ses(to_email: str, generated_image_path: str, anti_mot
         return False
 
 
-def send_motivation_email_smtp(to_email: str, generated_image_path: str, anti_motivation_mode: bool = False) -> bool:
+def send_motivation_email_smtp(to_email: str, generated_image_path: str, mode: str = "toned") -> bool:
     """
     Send a daily motivation email with the generated image using SMTP (development only)
 
     Args:
         to_email: Recipient email address
         generated_image_path: Path to the generated image file
-        anti_motivation_mode: If True, use anti-motivation message
+        mode: User's mode ('shame', 'toned', 'ripped', 'furry')
 
     Returns:
         True if email sent successfully, False otherwise
@@ -136,8 +155,8 @@ def send_motivation_email_smtp(to_email: str, generated_image_path: str, anti_mo
         msg['From'] = FROM_EMAIL
         msg['To'] = to_email
 
-        # Choose message based on anti-motivation mode
-        message_text = "This could be you" if anti_motivation_mode else "Get after it"
+        # Choose message based on mode
+        message_text = get_message_text_for_mode(mode)
 
         # Create HTML body with embedded image
         html_body = f"""
@@ -190,7 +209,7 @@ def send_motivation_email_smtp(to_email: str, generated_image_path: str, anti_mo
         return False
 
 
-def send_motivation_email(to_email: str, generated_image_path: str, anti_motivation_mode: bool = False) -> bool:
+def send_motivation_email(to_email: str, generated_image_path: str, mode: str = "toned") -> bool:
     """
     Send a daily motivation email with the generated image.
     Routes to SES in production, SMTP in development.
@@ -198,7 +217,7 @@ def send_motivation_email(to_email: str, generated_image_path: str, anti_motivat
     Args:
         to_email: Recipient email address
         generated_image_path: Path to the generated image file
-        anti_motivation_mode: If True, use anti-motivation message
+        mode: User's mode ('shame', 'toned', 'ripped', 'furry')
 
     Returns:
         True if email sent successfully, False otherwise
@@ -207,11 +226,11 @@ def send_motivation_email(to_email: str, generated_image_path: str, anti_motivat
 
     # TEMPORARY: Force SMTP usage even in production
     logger.info("Using SMTP for email delivery (temporarily forced)")
-    return send_motivation_email_smtp(to_email, generated_image_path, anti_motivation_mode)
+    return send_motivation_email_smtp(to_email, generated_image_path, mode)
 
     # if environment == "production":
     #     logger.info("Using Amazon SES for email delivery (production environment)")
-    #     return send_motivation_email_ses(to_email, generated_image_path, anti_motivation_mode)
+    #     return send_motivation_email_ses(to_email, generated_image_path, mode)
     # else:
     #     logger.info("Using SMTP for email delivery (development environment)")
-    #     return send_motivation_email_smtp(to_email, generated_image_path, anti_motivation_mode)
+    #     return send_motivation_email_smtp(to_email, generated_image_path, mode)

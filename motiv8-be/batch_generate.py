@@ -56,14 +56,15 @@ def get_prompts_for_user(user: User):
     """
     Get the appropriate prompt and negative prompt based on user settings.
 
+    Prompt structure: gender component + mode component + background component
+
     Args:
-        user: User object with gender and anti_motivation_mode settings
+        user: User object with gender, mode settings
 
     Returns:
         tuple: (prompt, negative_prompt)
     """
-    # Seven Continents
-    # One for each day of the week (7 continents for 7 days)
+    # Seven Continents - One for each day of the week (7 continents for 7 days)
     continents = [
         "Africa with golden savanna grasslands, acacia trees, and distant mountains under a warm sunset sky",
         "Antarctica with pristine white ice sheets, towering icebergs, and crisp polar skies",
@@ -80,24 +81,49 @@ def get_prompts_for_user(user: User):
 
     gender_term = "female" if user.gender == "female" else "male"
 
-    if user.anti_motivation_mode:
-        # Anti-motivation prompt: obese, hairy, and unhealthy
-        if user.gender == "female":
-            # In underwear for females
-            prompt = f"full body photo of an obese, overweight, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in her underwear, at {continent}, highly detailed, 8k, photorealistic"
-        else:
-            # In underwear for males
-            prompt = f"full body photo of an obese, overweight, hairy, unhealthy, ill-looking {gender_term}, out of shape, slovenly appearance, in his underwear, at {continent}, highly detailed, 8k, photorealistic"
-        negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic, nude, naked, nudity, exposed genitals"
+    # Gender component - female always gets "two piece", male gets "in underwear"
+    if user.gender == "female":
+        gender_component = f"full body photo of a {gender_term} in a two piece"
     else:
-        # Regular motivation prompt: muscular and fit
-        if user.gender == "female":
-            # Toned body in two piece for females
-            prompt = f"professional full body photo of a {gender_term} with toned athletic physique in a two piece, at {continent}, highly detailed, 8k, photorealistic"
-        else:
-            # Bodybuilder physique for males
-            prompt = f"professional full body photo of a {gender_term} bodybuilder with extremely muscular physique, at {continent}, highly detailed, 8k, photorealistic"
+        gender_component = f"full body photo of a {gender_term} in underwear"
+
+    # Mode component based on user's selected mode
+    # Fallback to anti_motivation_mode for backward compatibility
+    mode = user.mode or ("shame" if user.anti_motivation_mode else ("toned" if user.gender == "female" else "ripped"))
+
+    if mode == "shame":
+        # Shame mode: demotivational, unhealthy appearance - same for all genders
+        mode_component = "who is obese, overweight, hairy, unhealthy, ill-looking, out of shape, slovenly appearance"
+        negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic, nude, naked, nudity, exposed genitals"
+    elif mode == "toned":
+        # Toned mode: athletic, fit physique
+        mode_component = "with toned athletic physique"
         negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
+    elif mode == "ripped":
+        # Ripped mode: extremely muscular, bodybuilder physique
+        mode_component = "bodybuilder with extremely muscular physique"
+        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
+    elif mode == "furry":
+        # Furry mode: anthropomorphic animal with sexy furry body
+        # Alternates through different animals based on day of year
+        day_of_year = datetime.now().timetuple().tm_yday
+        furry_animals = ["kitty", "squirrel", "koala"]
+        animal = furry_animals[day_of_year % len(furry_animals)]
+        mode_component = f"anthropomorphic {animal} with furry, sexy body"
+        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals, human"
+    else:
+        # Default to toned if mode is invalid
+        mode_component = "with toned athletic physique"
+        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
+
+    # Background component
+    background_component = f"at {continent}, highly detailed, 8k, photorealistic"
+
+    # Add "professional" prefix for non-shame modes
+    if mode != "shame":
+        prompt = f"professional {gender_component} {mode_component}, {background_component}"
+    else:
+        prompt = f"{gender_component} {mode_component}, {background_component}"
 
     return prompt, negative_prompt
 
@@ -247,20 +273,24 @@ def generate_for_user(user: User, generator, db):
         s3_key = generated_storage.save_from_file(generated_filename, str(temp_generated_path))
         logger.info(f"Image uploaded to storage: {generated_filename}")
 
+        # Get mode with fallback to anti_motivation_mode for backward compatibility
+        mode = user.mode or ("shame" if user.anti_motivation_mode else ("toned" if user.gender == "female" else "ripped"))
+
         # Record generated image in database
         generation_time_millis = int(time.time() * 1000)
         generated_image = GeneratedImage(
             user_id=user.id,
             s3_key=s3_key,
             generation_date=date.today(),
-            generated_at_millis=generation_time_millis
+            generated_at_millis=generation_time_millis,
+            mode=mode
         )
         db.add(generated_image)
         db.commit()
-        logger.info(f"Generated image recorded in database: {generated_image.id}")
+        logger.info(f"Generated image recorded in database: {generated_image.id} with mode: {mode}")
 
         # Send email with local temp file
-        email_sent = send_motivation_email(user.email, str(temp_generated_path), user.anti_motivation_mode)
+        email_sent = send_motivation_email(user.email, str(temp_generated_path), mode)
         if email_sent:
             logger.info(f"Email sent successfully to {user.email}")
         else:

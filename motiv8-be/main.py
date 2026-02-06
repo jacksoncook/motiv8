@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database import get_db, init_db
-from models import User, GeneratedImage
+from models import User, GeneratedImage, ModeEnum
 from migrate import migrate_database
 from email_utils import send_motivation_email
 from storage import uploads_storage, embeddings_storage, generated_storage, USE_S3
@@ -291,7 +291,9 @@ async def generate_image(
         logger.info(f"Image generated and uploaded to storage: {generated_filename}")
 
         # Send motivation email to user with local temp file
-        email_sent = send_motivation_email(current_user.email, str(temp_generated_path), current_user.anti_motivation_mode)
+        # Get mode with fallback to anti_motivation_mode for backward compatibility
+        mode = current_user.mode or ("shame" if current_user.anti_motivation_mode else ("toned" if current_user.gender == "female" else "ripped"))
+        email_sent = send_motivation_email(current_user.email, str(temp_generated_path), mode)
 
         # Clean up temp files if using S3
         if USE_S3:
@@ -450,7 +452,8 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "selfie_embedding_filename": current_user.selfie_embedding_filename,
         "gender": current_user.gender,
         "workout_days": workout_days,
-        "anti_motivation_mode": current_user.anti_motivation_mode if current_user.anti_motivation_mode is not None else False
+        "anti_motivation_mode": current_user.anti_motivation_mode if current_user.anti_motivation_mode is not None else False,
+        "mode": current_user.mode
     }
 
 
@@ -503,6 +506,11 @@ class AntiMotivationModeUpdate(BaseModel):
     anti_motivation_mode: bool
 
 
+class ModeUpdate(BaseModel):
+    """Request body for updating mode"""
+    mode: ModeEnum
+
+
 @app.put("/api/workout-days")
 async def update_workout_days(
     request: WorkoutDaysUpdate,
@@ -549,6 +557,30 @@ async def update_anti_motivation_mode(
     except Exception as e:
         logger.error(f"Failed to update anti-motivation mode: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to update anti-motivation mode: {str(e)}")
+
+
+@app.put("/api/mode")
+async def update_mode(
+    request: ModeUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update user's mode setting"""
+    try:
+        # Update mode - Pydantic validates the enum automatically
+        current_user.mode = request.mode.value
+        db.commit()
+        db.refresh(current_user)
+
+        logger.info(f"Updated mode to {request.mode.value} for user {current_user.email}")
+
+        return {
+            "message": "Mode updated successfully",
+            "mode": current_user.mode
+        }
+    except Exception as e:
+        logger.error(f"Failed to update mode: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update mode: {str(e)}")
 
 
 if __name__ == "__main__":

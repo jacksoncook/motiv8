@@ -84,6 +84,46 @@ def migrate_sqlite():
         else:
             print('✓ anti_motivation_mode column already exists')
 
+        if 'mode' not in column_names:
+            print('Adding mode column...')
+            cursor.execute('ALTER TABLE users ADD COLUMN mode VARCHAR')
+            print('✓ Added mode column')
+
+            # Set mode based on anti_motivation_mode and gender
+            print('Setting mode values for existing users...')
+
+            # Set 'shame' for users with anti_motivation_mode = true
+            cursor.execute("UPDATE users SET mode = 'shame' WHERE anti_motivation_mode = 1")
+            shame_count = cursor.rowcount
+
+            # Set 'toned' for female users without anti_motivation_mode
+            cursor.execute("UPDATE users SET mode = 'toned' WHERE gender = 'female' AND (anti_motivation_mode = 0 OR anti_motivation_mode IS NULL)")
+            toned_count = cursor.rowcount
+
+            # Set 'ripped' for male users without anti_motivation_mode
+            cursor.execute("UPDATE users SET mode = 'ripped' WHERE gender = 'male' AND (anti_motivation_mode = 0 OR anti_motivation_mode IS NULL)")
+            ripped_count = cursor.rowcount
+
+            print(f'  - Set {shame_count} users to "shame" mode')
+            print(f'  - Set {toned_count} female users to "toned" mode')
+            print(f'  - Set {ripped_count} male users to "ripped" mode')
+        else:
+            print('✓ mode column already exists')
+
+        # Migrate generated_images table
+        cursor.execute("PRAGMA table_info(generated_images)")
+        gen_images_columns = cursor.fetchall()
+        gen_images_column_names = [col[1] for col in gen_images_columns]
+
+        print(f"Current columns in generated_images table: {gen_images_column_names}")
+
+        if 'mode' not in gen_images_column_names:
+            print('Adding mode column to generated_images...')
+            cursor.execute('ALTER TABLE generated_images ADD COLUMN mode VARCHAR')
+            print('✓ Added mode column to generated_images')
+        else:
+            print('✓ mode column already exists in generated_images')
+
         conn.commit()
         conn.close()
         print('SQLite database migration completed successfully!')
@@ -160,6 +200,50 @@ def migrate_postgresql():
             print('✓ Added anti_motivation_mode column')
         else:
             print('✓ anti_motivation_mode column already exists')
+
+        if 'mode' not in column_names:
+            print('Adding mode column...')
+            cursor.execute('ALTER TABLE users ADD COLUMN mode VARCHAR')
+            print('✓ Added mode column')
+
+            # Set mode based on anti_motivation_mode and gender
+            print('Setting mode values for existing users...')
+
+            # Set 'shame' for users with anti_motivation_mode = true
+            cursor.execute("UPDATE users SET mode = 'shame' WHERE anti_motivation_mode = true")
+            shame_count = cursor.rowcount
+
+            # Set 'toned' for female users without anti_motivation_mode
+            cursor.execute("UPDATE users SET mode = 'toned' WHERE gender = 'female' AND (anti_motivation_mode = false OR anti_motivation_mode IS NULL)")
+            toned_count = cursor.rowcount
+
+            # Set 'ripped' for male users without anti_motivation_mode
+            cursor.execute("UPDATE users SET mode = 'ripped' WHERE gender = 'male' AND (anti_motivation_mode = false OR anti_motivation_mode IS NULL)")
+            ripped_count = cursor.rowcount
+
+            print(f'  - Set {shame_count} users to "shame" mode')
+            print(f'  - Set {toned_count} female users to "toned" mode')
+            print(f'  - Set {ripped_count} male users to "ripped" mode')
+        else:
+            print('✓ mode column already exists')
+
+        # Migrate generated_images table
+        cursor.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'generated_images'
+        """)
+        gen_images_columns = cursor.fetchall()
+        gen_images_column_names = [col[0] for col in gen_images_columns]
+
+        print(f"Current columns in generated_images table: {gen_images_column_names}")
+
+        if 'mode' not in gen_images_column_names:
+            print('Adding mode column to generated_images...')
+            cursor.execute('ALTER TABLE generated_images ADD COLUMN mode VARCHAR')
+            print('✓ Added mode column to generated_images')
+        else:
+            print('✓ mode column already exists in generated_images')
 
         conn.commit()
         cursor.close()
