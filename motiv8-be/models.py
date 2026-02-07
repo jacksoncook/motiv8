@@ -46,9 +46,9 @@ class User(Base):
     anti_motivation_mode = Column(Boolean, nullable=False, default=False)
 
     # Mode - determines the type of image generation
-    # Valid values are defined in ModeEnum: 'shame', 'toned', 'ripped'
+    # Valid values are defined in ModeEnum: 'shame', 'toned', 'ripped', 'furry'
     # Using String instead of Enum for SQLite compatibility
-    mode = Column(String, nullable=True)
+    mode = Column(String, nullable=False, default="ripped")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

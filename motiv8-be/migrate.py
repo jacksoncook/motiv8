@@ -86,7 +86,7 @@ def migrate_sqlite():
 
         if 'mode' not in column_names:
             print('Adding mode column...')
-            cursor.execute('ALTER TABLE users ADD COLUMN mode VARCHAR')
+            cursor.execute('ALTER TABLE users ADD COLUMN mode VARCHAR DEFAULT "ripped" NOT NULL')
             print('✓ Added mode column')
 
             # Set mode based on anti_motivation_mode and gender
@@ -109,6 +109,31 @@ def migrate_sqlite():
             print(f'  - Set {ripped_count} male users to "ripped" mode')
         else:
             print('✓ mode column already exists')
+
+            # Update any NULL mode values based on gender/anti_motivation_mode
+            print('Updating NULL mode values for existing users...')
+
+            # Set 'shame' for users with anti_motivation_mode = true and NULL mode
+            cursor.execute("UPDATE users SET mode = 'shame' WHERE anti_motivation_mode = 1 AND mode IS NULL")
+            shame_count = cursor.rowcount
+
+            # Set 'toned' for female users without anti_motivation_mode and NULL mode
+            cursor.execute("UPDATE users SET mode = 'toned' WHERE gender = 'female' AND (anti_motivation_mode = 0 OR anti_motivation_mode IS NULL) AND mode IS NULL")
+            toned_count = cursor.rowcount
+
+            # Set 'ripped' for male users without anti_motivation_mode and NULL mode
+            cursor.execute("UPDATE users SET mode = 'ripped' WHERE gender = 'male' AND (anti_motivation_mode = 0 OR anti_motivation_mode IS NULL) AND mode IS NULL")
+            ripped_count = cursor.rowcount
+
+            # Set 'ripped' as default for any remaining NULL values (no gender detected)
+            cursor.execute("UPDATE users SET mode = 'ripped' WHERE mode IS NULL")
+            default_count = cursor.rowcount
+
+            if shame_count > 0 or toned_count > 0 or ripped_count > 0 or default_count > 0:
+                print(f'  - Set {shame_count} users to "shame" mode')
+                print(f'  - Set {toned_count} female users to "toned" mode')
+                print(f'  - Set {ripped_count} male users to "ripped" mode')
+                print(f'  - Set {default_count} users with no gender to "ripped" (default)')
 
         # Migrate generated_images table
         cursor.execute("PRAGMA table_info(generated_images)")
@@ -203,7 +228,7 @@ def migrate_postgresql():
 
         if 'mode' not in column_names:
             print('Adding mode column...')
-            cursor.execute('ALTER TABLE users ADD COLUMN mode VARCHAR')
+            cursor.execute('ALTER TABLE users ADD COLUMN mode VARCHAR DEFAULT \'ripped\' NOT NULL')
             print('✓ Added mode column')
 
             # Set mode based on anti_motivation_mode and gender
@@ -226,6 +251,31 @@ def migrate_postgresql():
             print(f'  - Set {ripped_count} male users to "ripped" mode')
         else:
             print('✓ mode column already exists')
+
+            # Update any NULL mode values based on gender/anti_motivation_mode
+            print('Updating NULL mode values for existing users...')
+
+            # Set 'shame' for users with anti_motivation_mode = true and NULL mode
+            cursor.execute("UPDATE users SET mode = 'shame' WHERE anti_motivation_mode = true AND mode IS NULL")
+            shame_count = cursor.rowcount
+
+            # Set 'toned' for female users without anti_motivation_mode and NULL mode
+            cursor.execute("UPDATE users SET mode = 'toned' WHERE gender = 'female' AND (anti_motivation_mode = false OR anti_motivation_mode IS NULL) AND mode IS NULL")
+            toned_count = cursor.rowcount
+
+            # Set 'ripped' for male users without anti_motivation_mode and NULL mode
+            cursor.execute("UPDATE users SET mode = 'ripped' WHERE gender = 'male' AND (anti_motivation_mode = false OR anti_motivation_mode IS NULL) AND mode IS NULL")
+            ripped_count = cursor.rowcount
+
+            # Set 'ripped' as default for any remaining NULL values (no gender detected)
+            cursor.execute("UPDATE users SET mode = 'ripped' WHERE mode IS NULL")
+            default_count = cursor.rowcount
+
+            if shame_count > 0 or toned_count > 0 or ripped_count > 0 or default_count > 0:
+                print(f'  - Set {shame_count} users to "shame" mode')
+                print(f'  - Set {toned_count} female users to "toned" mode')
+                print(f'  - Set {ripped_count} male users to "ripped" mode')
+                print(f'  - Set {default_count} users with no gender to "ripped" (default)')
 
         # Migrate generated_images table
         cursor.execute("""
