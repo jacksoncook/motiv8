@@ -22,6 +22,7 @@ from models import User, GeneratedImage, ModeEnum
 from migrate import migrate_database
 from email_utils import send_motivation_email
 from storage import uploads_storage, embeddings_storage, generated_storage, USE_S3
+from prompt_generator import get_prompts_for_user
 from auth import (
     create_access_token,
     get_current_user,
@@ -208,10 +209,6 @@ async def upload_image(
 
 class GenerateRequest(BaseModel):
     """Request body for image generation"""
-    embedding_filename: str
-    image_filename: Optional[str] = None  # Original uploaded image filename
-    prompt: str = "professional full body photo of a person with extremely muscular bodybuilder physique, headgear, standing on the surface of a planet in our solar system, highly detailed, 8k, photorealistic"
-    negative_prompt: str = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality"
     num_inference_steps: int = 30
     guidance_scale: float = 7.5
     seed: Optional[int] = None
@@ -221,7 +218,8 @@ class GenerateRequest(BaseModel):
 @app.post("/api/generate")
 async def generate_image(
     request: GenerateRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Generate an image using a face embedding (development only)"""
     # Only allow in development environment
@@ -233,38 +231,99 @@ async def generate_image(
         )
 
     try:
-        # Lazy import image generator (only needed in development)
+        # Lazy imports (only needed in development)
         from image_generator import get_image_generator
+        from faceid_extractor import get_face_extractor
+        import numpy as np
+
+        # Check if user has uploaded a selfie
+        if not current_user.selfie_filename:
+            raise HTTPException(status_code=400, detail="No selfie uploaded yet. Please upload a selfie first.")
+
+        # If no embedding exists, extract face first
+        embedding_filename = current_user.selfie_embedding_filename
+        if not embedding_filename or not embeddings_storage.exists(embedding_filename):
+            logger.info("No embedding found, extracting face from selfie first...")
+
+            # Check if image exists in storage
+            if not uploads_storage.exists(current_user.selfie_filename):
+                raise HTTPException(status_code=404, detail="Selfie file not found in storage")
+
+            # Download image to temp location
+            temp_image_path = UPLOAD_DIR / current_user.selfie_filename
+            uploads_storage.download_to_local(current_user.selfie_filename, str(temp_image_path))
+
+            # Extract face embedding
+            extractor = get_face_extractor()
+            extract_result = extractor.extract_embedding(str(temp_image_path))
+
+            if not extract_result["success"]:
+                error_msg = extract_result.get('error', 'Unknown error')
+                logger.error(f"Face extraction failed: {error_msg}")
+                raise HTTPException(status_code=400, detail=f"Face extraction failed: {error_msg}")
+
+            # Save embedding to temp location
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            embedding_filename = f"{timestamp}_{os.path.splitext(current_user.selfie_filename)[0]}.npy"
+            temp_embedding_path = EMBEDDINGS_DIR / embedding_filename
+
+            np.save(str(temp_embedding_path), extract_result["embedding"])
+            logger.info(f"Saved embedding to temp: {temp_embedding_path}")
+
+            # Upload embedding to storage
+            embeddings_storage.save_from_file(embedding_filename, str(temp_embedding_path))
+            logger.info(f"Uploaded embedding to storage: {embedding_filename}")
+
+            # Update user with embedding filename and detected gender
+            current_user.selfie_embedding_filename = embedding_filename
+            if "gender" in extract_result and extract_result["gender"]:
+                current_user.gender = extract_result["gender"]
+                logger.info(f"Detected gender: {extract_result['gender']}")
+
+            db.commit()
+            db.refresh(current_user)
+
+            # Clean up temp embedding file if using S3
+            if USE_S3 and temp_embedding_path.exists():
+                os.remove(temp_embedding_path)
+
+            logger.info(f"Face extraction complete, proceeding to generation")
 
         # Check if embedding file exists in storage
-        if not embeddings_storage.exists(request.embedding_filename):
+        if not embeddings_storage.exists(embedding_filename):
             raise HTTPException(
                 status_code=404,
-                detail=f"Embedding file not found: {request.embedding_filename}"
+                detail=f"Embedding file not found: {embedding_filename}"
             )
 
-        logger.info(f"Generating image using embedding: {request.embedding_filename}")
+        # Generate prompt based on user's mode and gender using shared function
+        prompt, negative_prompt = get_prompts_for_user(current_user)
+        mode = current_user.mode or ("shame" if current_user.anti_motivation_mode else ("toned" if current_user.gender == "female" else "ripped"))
+
+        logger.info(f"Generating image using embedding: {embedding_filename}")
+        logger.info(f"Using mode: {mode}, gender: {current_user.gender}")
+        logger.info(f"Prompt: {prompt}")
 
         # Download embedding to local temp file for processing
-        temp_embedding_path = EMBEDDINGS_DIR / request.embedding_filename
-        embeddings_storage.download_to_local(request.embedding_filename, str(temp_embedding_path))
+        temp_embedding_path = EMBEDDINGS_DIR / embedding_filename
+        embeddings_storage.download_to_local(embedding_filename, str(temp_embedding_path))
 
-        # Get the original image if provided and download to temp location
+        # Get the original image and download to temp location
         temp_image_path = None
-        if request.image_filename:
-            if uploads_storage.exists(request.image_filename):
-                temp_image_path = UPLOAD_DIR / request.image_filename
-                uploads_storage.download_to_local(request.image_filename, str(temp_image_path))
+        if current_user.selfie_filename:
+            if uploads_storage.exists(current_user.selfie_filename):
+                temp_image_path = UPLOAD_DIR / current_user.selfie_filename
+                uploads_storage.download_to_local(current_user.selfie_filename, str(temp_image_path))
             else:
-                logger.warning(f"Image file not found: {request.image_filename}")
+                logger.warning(f"Image file not found: {current_user.selfie_filename}")
 
         # Generate image using local temp files
         generator = get_image_generator()
         result = generator.generate_image(
             embedding_path=str(temp_embedding_path),
             image_path=str(temp_image_path) if temp_image_path else None,
-            prompt=request.prompt,
-            negative_prompt=request.negative_prompt,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
             num_inference_steps=request.num_inference_steps,
             guidance_scale=request.guidance_scale,
             seed=request.seed,
@@ -279,7 +338,7 @@ async def generate_image(
 
         # Save generated image to temp location
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_name = os.path.splitext(request.embedding_filename)[0]
+        base_name = os.path.splitext(embedding_filename)[0]
         generated_filename = f"{timestamp}_{base_name}_generated.png"
         temp_generated_path = GENERATED_DIR / generated_filename
 
@@ -314,8 +373,9 @@ async def generate_image(
             content={
                 "message": "Image generated successfully",
                 "generated_filename": generated_filename,
-                "embedding_filename": request.embedding_filename,
-                "prompt": request.prompt,
+                "embedding_filename": embedding_filename,
+                "prompt": prompt,
+                "mode": mode,
                 "email_sent": email_sent
             }
         )

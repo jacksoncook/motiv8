@@ -121,12 +121,9 @@ function ImageUpload() {
   };
 
   const handleGenerate = async () => {
-    // Use user's existing selfie (embedding is created by batch job)
-    const embeddingFilename = user?.selfie_embedding_filename;
-    const imageFilename = user?.selfie_filename;
-
-    if (!embeddingFilename) {
-      setError('Please wait for face extraction to complete before generating images');
+    // Backend will automatically extract face if needed and use user's mode
+    if (!user?.selfie_filename) {
+      setError('Please upload a selfie first before generating images');
       return;
     }
 
@@ -140,17 +137,9 @@ function ImageUpload() {
       // Generate a random seed for variation in results
       const randomSeed = Math.floor(Math.random() * 1000000);
 
-      // Create gender-specific prompt
-      const genderTerm = user?.gender === "female" ? "female" : "male";
-      const prompt = `professional full body photo of a ${genderTerm} bodybuilder with extremely muscular physique, highly detailed, 8k, photorealistic`;
-
       const response = await axios.post<GenerateResponse>(
         `${API_BASE_URL}/api/generate`,
         {
-          embedding_filename: embeddingFilename,
-          image_filename: imageFilename,  // Pass original image for CLIP encoding
-          prompt: prompt,
-          negative_prompt: "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality",
           num_inference_steps: 30,
           guidance_scale: 7.5,
           scale: 0.8,

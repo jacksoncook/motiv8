@@ -135,19 +135,25 @@ def migrate_sqlite():
                 print(f'  - Set {ripped_count} male users to "ripped" mode')
                 print(f'  - Set {default_count} users with no gender to "ripped" (default)')
 
-        # Migrate generated_images table
-        cursor.execute("PRAGMA table_info(generated_images)")
-        gen_images_columns = cursor.fetchall()
-        gen_images_column_names = [col[1] for col in gen_images_columns]
+        # Migrate generated_images table (only if it exists)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='generated_images'")
+        table_exists = cursor.fetchone()
 
-        print(f"Current columns in generated_images table: {gen_images_column_names}")
+        if table_exists:
+            cursor.execute("PRAGMA table_info(generated_images)")
+            gen_images_columns = cursor.fetchall()
+            gen_images_column_names = [col[1] for col in gen_images_columns]
 
-        if 'mode' not in gen_images_column_names:
-            print('Adding mode column to generated_images...')
-            cursor.execute('ALTER TABLE generated_images ADD COLUMN mode VARCHAR')
-            print('✓ Added mode column to generated_images')
+            print(f"Current columns in generated_images table: {gen_images_column_names}")
+
+            if 'mode' not in gen_images_column_names:
+                print('Adding mode column to generated_images...')
+                cursor.execute('ALTER TABLE generated_images ADD COLUMN mode VARCHAR')
+                print('✓ Added mode column to generated_images')
+            else:
+                print('✓ mode column already exists in generated_images')
         else:
-            print('✓ mode column already exists in generated_images')
+            print('generated_images table does not exist yet, will be created with correct schema')
 
         conn.commit()
         conn.close()
