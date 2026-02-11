@@ -60,15 +60,15 @@ def get_prompts_for_user(user: User):
         mode_component = "bodybuilder with extremely muscular physique"
         negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
     elif mode == "furry":
-        # Furry mode: detailed anthropomorphic furry body
+        # Furry mode: human face with animal features and furry body
         # Randomly selects an animal type for variety
 
-        # Detailed descriptions for each animal type
+        # Detailed descriptions for each animal type - maintains human face structure with animal augmentations
         furry_descriptions = {
-            "cat": "anthropomorphic feline furry, fully covered in detailed fur with no visible human skin, featuring a cat muzzle, whiskers, triangular feline ears, slit pupils, digitigrade legs, paw-like feet, and a long tail",
-            "fox": "anthropomorphic vulpine furry, fully covered in detailed russet and white fur with no visible human skin, featuring a fox muzzle, pointed canine ears, bright alert eyes, digitigrade legs, paw-like feet with black toe beans, and a large bushy tail",
-            "wolf": "anthropomorphic lupine furry, fully covered in detailed grey and white fur with no visible human skin, featuring a wolf muzzle with prominent canine teeth, pointed ears, intense yellow eyes, digitigrade legs, large paw-like feet, and a thick tail",
-            "dragon": "anthropomorphic dragon furry, fully covered in detailed scales with no visible human skin, featuring a dragon muzzle with fangs, horned head, reptilian eyes with slit pupils, digitigrade legs, clawed feet, large wings folded against back, and a long powerful tail"
+            "cat": "with human facial structure augmented by feline features including subtle whisker markings, triangular feline ears on top of head, cat-like eye makeup with slit pupils, body covered in detailed fur texture, digitigrade legs, paw-like feet, and a long tail",
+            "fox": "with human facial structure augmented by vulpine features including fox ear tufts on top of head, russet and white fur coloring on body, fox-like eye makeup with bright alert eyes, body covered in detailed russet and white fur texture, digitigrade legs, paw-like feet with black toe beans, and a large bushy tail",
+            "wolf": "with human facial structure augmented by lupine features including pointed wolf ears on top of head, grey and white fur coloring on body, wolf-like eye makeup with intense eyes, body covered in detailed grey and white fur texture, digitigrade legs, large paw-like feet, and a thick tail",
+            "dragon": "with human facial structure augmented by dragon features including small horns, dragon ear fins, reptilian eye makeup with slit pupils, body covered in detailed scales, digitigrade legs, clawed feet, large wings folded against back, and a long powerful tail"
         }
 
         furry_animals = ["cat", "fox", "wolf", "dragon"]
@@ -81,8 +81,8 @@ def get_prompts_for_user(user: User):
         else:
             clothing = "wearing fitted athletic briefs designed for a furry body"
 
-        mode_component = f"{animal_description}, {clothing}, ultra-detailed fur texture, high-end VFX realism, cinematic lighting, shallow depth of field, 8k detail"
-        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, lowres, worst quality, nude, naked, nudity, exposed genitals, cartoon, anime, human skin, human face, smooth skin"
+        mode_component = f"{animal_description}, {clothing}, maintaining human face and facial structure, ultra-detailed fur texture on body, high-end VFX realism, cinematic lighting, shallow depth of field, 8k detail"
+        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, lowres, worst quality, nude, naked, nudity, exposed genitals, cartoon, anime, animal muzzle, animal snout, full animal face, beast face"
     else:
         # Default to toned if mode is invalid
         mode_component = "with toned athletic physique"
