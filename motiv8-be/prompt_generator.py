@@ -42,6 +42,21 @@ def get_person_prompt(user: User):
     """
     gender_term = "female" if user.gender == "female" else "male"
 
+    # Winter sports activities - Cycling through 7 activities for 7 days
+    winter_activities = [
+        "curling, sliding granite stones across ice",
+        "skeleton racing, riding headfirst on a small sled",
+        "biathlon, combining cross-country skiing and rifle shooting",
+        "nordic combined, performing ski jumping",
+        "short track speed skating, racing on ice",
+        "freestyle skiing with aerial flips and tricks",
+        "bobsleigh, pushing and riding a racing sled"
+    ]
+
+    # Select activity based on day of week (0=Monday, 6=Sunday)
+    day_of_week = datetime.now().weekday()
+    activity = winter_activities[day_of_week % len(winter_activities)]
+
     # Gender component - female always gets "two piece", male gets "in underwear"
     if user.gender == "female":
         gender_component = f"full body photo of a {gender_term} in a two piece"
@@ -95,10 +110,11 @@ def get_person_prompt(user: User):
 
     # Build person prompt (no background)
     # Add "professional" prefix for non-shame modes, include "plain background" to avoid generating scenery
+    # Include winter activity in the pose/action
     if mode != "shame":
-        person_prompt = f"professional {gender_component} {mode_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
+        person_prompt = f"professional {gender_component} {mode_component}, in action pose for {activity}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
     else:
-        person_prompt = f"{gender_component} {mode_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
+        person_prompt = f"{gender_component} {mode_component}, in action pose for {activity}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
 
     return person_prompt, negative_prompt
 
@@ -113,23 +129,23 @@ def get_background_prompt(user: User):
     Returns:
         tuple: (background_prompt, background_negative_prompt)
     """
-    # Asian Cities - Cycling through iconic locations (7 cities for 7 days)
-    asian_cities = [
-        "Seoul, Korea with vibrant neon-lit skyscrapers, traditional hanok rooftops, and cherry blossoms along modern streets",
-        "Nara, Japan with ancient wooden temples, peaceful deer roaming through gardens, and traditional Japanese architecture",
-        "Tokyo, Japan with towering skyscrapers, bustling Shibuya crossing, and bright neon signs illuminating the streets",
-        "Taipei, Taiwan with Taipei 101 piercing the sky, night markets glowing with lanterns, and lush mountain backdrop",
-        "Beijing, China with the majestic Forbidden City, traditional imperial architecture, and red palace walls",
-        "Moscow, Russia with colorful onion domes of Saint Basil's Cathedral, Red Square, and snow-dusted architecture",
-        "Hiroshima, Japan with the iconic Atomic Bomb Dome by the river, Peace Memorial Park, and modern cityscape beyond"
+    # Ski Resorts - Cycling through world-class destinations (7 resorts for 7 days)
+    ski_resorts = [
+        "Niseko, Japan with ultra-light powder snow, birch forests lit for night skiing, and natural onsens with mountain views",
+        "Chamonix, France with steep Alpine terrain beneath Mont Blanc, dramatic glacier views, and classic mountaineering atmosphere",
+        "Jackson Hole, USA with rugged Teton mountain peaks, steep snowy slopes, and Wild West lodge architecture",
+        "Zermatt, Switzerland with the iconic Matterhorn peak, car-free Alpine village, and pristine glacier skiing terrain",
+        "Revelstoke, Canada with deep powder snow, towering mountain peaks, and one of North America's biggest vertical drops",
+        "Gulmarg, India with Himalayan mountain peaks, one of the world's highest gondolas, and vast ungroomed off-piste terrain",
+        "Portillo, Chile with steep Andes mountain slopes, bright blue Laguna del Inca lake, and remote high-altitude ski terrain"
     ]
 
-    # Select city based on day of week (0=Monday, 6=Sunday)
+    # Select resort based on day of week (0=Monday, 6=Sunday)
     day_of_week = datetime.now().weekday()
-    city_background = asian_cities[day_of_week % len(asian_cities)]
+    resort_background = ski_resorts[day_of_week % len(ski_resorts)]
 
     # Background-only prompt
-    background_prompt = f"scenic cityscape of {city_background}, no people, empty scene, highly detailed, 8k, photorealistic"
+    background_prompt = f"scenic mountain landscape of {resort_background}, no people, empty scene, highly detailed, 8k, photorealistic"
     background_negative_prompt = "blurry, low quality, distorted, people, person, human, face, body, character, figure"
 
     return background_prompt, background_negative_prompt
