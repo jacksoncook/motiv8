@@ -182,6 +182,82 @@ class ImageGenerator:
             logger.error(f"Error generating image: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
 
+    def generate_image_two_stage(
+        self,
+        embedding_path: str,
+        background_image: Image.Image,
+        image_path: Optional[str] = None,
+        prompt: str = "professional full body photo of a person with extremely muscular bodybuilder physique",
+        negative_prompt: str = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality",
+        num_inference_steps: int = 30,
+        guidance_scale: float = 7.5,
+        seed: Optional[int] = None,
+        scale: float = 0.8,
+    ) -> Dict[str, Any]:
+        """
+        Generate an image using two-stage process:
+        1. Generate person with plain background
+        2. Remove background from person
+        3. Composite person onto provided background
+
+        Args:
+            embedding_path: Path to the .npy embedding file
+            background_image: Pre-generated background PIL Image
+            image_path: Path to the face image (required by Plus variant for CLIP encoding)
+            prompt: Text prompt for person generation (should not include background)
+            negative_prompt: Negative prompt
+            num_inference_steps: Number of denoising steps
+            guidance_scale: Classifier-free guidance scale
+            seed: Random seed for reproducibility
+            scale: IP-Adapter scale (0-1), higher = more face preservation
+
+        Returns:
+            Dictionary containing:
+                - success: boolean
+                - image: Final composited PIL Image if successful
+                - person_image: Person image before compositing (for debugging)
+                - error: error message if failed
+        """
+        try:
+            # Step 1: Generate person with plain background
+            logger.info("Step 1: Generating person image...")
+            person_result = self.generate_image(
+                embedding_path=embedding_path,
+                image_path=image_path,
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                seed=seed,
+                scale=scale,
+            )
+
+            if not person_result["success"]:
+                return person_result
+
+            person_image = person_result["image"]
+
+            # Step 2 & 3: Remove background and composite
+            logger.info("Step 2: Removing background and compositing...")
+            from image_compositor import composite_person_on_background
+
+            final_image = composite_person_on_background(
+                person_image=person_image,
+                background_image=background_image,
+                remove_bg=True
+            )
+
+            logger.info("Two-stage generation completed successfully")
+            return {
+                "success": True,
+                "image": final_image,
+                "person_image": person_image,  # For debugging if needed
+            }
+
+        except Exception as e:
+            logger.error(f"Error in two-stage generation: {e}", exc_info=True)
+            return {"success": False, "error": str(e)}
+
     def save_image(self, image: Image.Image, output_path: str) -> bool:
         """
         Save generated image to file

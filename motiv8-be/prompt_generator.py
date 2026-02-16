@@ -20,21 +20,26 @@ def get_prompts_for_user(user: User):
     Returns:
         tuple: (prompt, negative_prompt)
     """
-    # Asian Cities - Cycling through iconic locations (7 cities for 7 days)
-    asian_cities = [
-        "Seoul, Korea with vibrant neon-lit skyscrapers, traditional hanok rooftops, and cherry blossoms along modern streets",
-        "Nara, Japan with ancient wooden temples, peaceful deer roaming through gardens, and traditional Japanese architecture",
-        "Tokyo, Japan with towering skyscrapers, bustling Shibuya crossing, and bright neon signs illuminating the streets",
-        "Taipei, Taiwan with Taipei 101 piercing the sky, night markets glowing with lanterns, and lush mountain backdrop",
-        "Beijing, China with the majestic Forbidden City, traditional imperial architecture, and red palace walls",
-        "Moscow, Russia with colorful onion domes of Saint Basil's Cathedral, Red Square, and snow-dusted architecture",
-        "Hiroshima, Japan with the iconic Atomic Bomb Dome by the river, Peace Memorial Park, and modern cityscape beyond"
-    ]
+    person_prompt, person_negative = get_person_prompt(user)
+    background_prompt, background_negative = get_background_prompt(user)
 
-    # Select city based on day of week (0=Monday, 6=Sunday)
-    day_of_week = datetime.now().weekday()
-    city_background = asian_cities[day_of_week % len(asian_cities)]
+    # Combined prompt for backward compatibility
+    prompt = f"{person_prompt}, {background_prompt}"
+    negative_prompt = person_negative
 
+    return prompt, negative_prompt
+
+
+def get_person_prompt(user: User):
+    """
+    Get the prompt for generating just the person (no background).
+
+    Args:
+        user: User object with gender, mode settings
+
+    Returns:
+        tuple: (person_prompt, person_negative_prompt)
+    """
     gender_term = "female" if user.gender == "female" else "male"
 
     # Gender component - female always gets "two piece", male gets "in underwear"
@@ -86,15 +91,45 @@ def get_prompts_for_user(user: User):
     else:
         # Default to toned if mode is invalid
         mode_component = "with toned athletic physique"
-        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
+        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals, background, scenery, buildings, landscape"
 
-    # Background component
-    background_component = f"at {city_background}, highly detailed, 8k, photorealistic"
-
-    # Add "professional" prefix for non-shame modes
+    # Build person prompt (no background)
+    # Add "professional" prefix for non-shame modes, include "plain background" to avoid generating scenery
     if mode != "shame":
-        prompt = f"professional {gender_component} {mode_component}, {background_component}"
+        person_prompt = f"professional {gender_component} {mode_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
     else:
-        prompt = f"{gender_component} {mode_component}, {background_component}"
+        person_prompt = f"{gender_component} {mode_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
 
-    return prompt, negative_prompt
+    return person_prompt, negative_prompt
+
+
+def get_background_prompt(user: User):
+    """
+    Get the prompt for generating just the background (no people).
+
+    Args:
+        user: User object (used for consistency/future customization)
+
+    Returns:
+        tuple: (background_prompt, background_negative_prompt)
+    """
+    # Asian Cities - Cycling through iconic locations (7 cities for 7 days)
+    asian_cities = [
+        "Seoul, Korea with vibrant neon-lit skyscrapers, traditional hanok rooftops, and cherry blossoms along modern streets",
+        "Nara, Japan with ancient wooden temples, peaceful deer roaming through gardens, and traditional Japanese architecture",
+        "Tokyo, Japan with towering skyscrapers, bustling Shibuya crossing, and bright neon signs illuminating the streets",
+        "Taipei, Taiwan with Taipei 101 piercing the sky, night markets glowing with lanterns, and lush mountain backdrop",
+        "Beijing, China with the majestic Forbidden City, traditional imperial architecture, and red palace walls",
+        "Moscow, Russia with colorful onion domes of Saint Basil's Cathedral, Red Square, and snow-dusted architecture",
+        "Hiroshima, Japan with the iconic Atomic Bomb Dome by the river, Peace Memorial Park, and modern cityscape beyond"
+    ]
+
+    # Select city based on day of week (0=Monday, 6=Sunday)
+    day_of_week = datetime.now().weekday()
+    city_background = asian_cities[day_of_week % len(asian_cities)]
+
+    # Background-only prompt
+    background_prompt = f"scenic cityscape of {city_background}, no people, empty scene, highly detailed, 8k, photorealistic"
+    background_negative_prompt = "blurry, low quality, distorted, people, person, human, face, body, character, figure"
+
+    return background_prompt, background_negative_prompt

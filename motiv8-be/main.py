@@ -233,6 +233,7 @@ async def generate_image(
     try:
         # Lazy imports (only needed in development)
         from image_generator import get_image_generator
+        from background_generator import get_background_generator
         from faceid_extractor import get_face_extractor
         import numpy as np
 
@@ -296,13 +297,17 @@ async def generate_image(
                 detail=f"Embedding file not found: {embedding_filename}"
             )
 
-        # Generate prompt based on user's mode and gender using shared function
-        prompt, negative_prompt = get_prompts_for_user(current_user)
+        # Generate prompts for person and background
+        from prompt_generator import get_person_prompt, get_background_prompt
+        person_prompt, person_negative = get_person_prompt(current_user)
+        background_prompt, background_negative = get_background_prompt(current_user)
+
         mode = current_user.mode or ("shame" if current_user.anti_motivation_mode else ("toned" if current_user.gender == "female" else "ripped"))
 
         logger.info(f"Generating image using embedding: {embedding_filename}")
         logger.info(f"Using mode: {mode}, gender: {current_user.gender}")
-        logger.info(f"Prompt: {prompt}")
+        logger.info(f"Person prompt: {person_prompt}")
+        logger.info(f"Background prompt: {background_prompt}")
 
         # Download embedding to local temp file for processing
         temp_embedding_path = EMBEDDINGS_DIR / embedding_filename
@@ -317,13 +322,37 @@ async def generate_image(
             else:
                 logger.warning(f"Image file not found: {current_user.selfie_filename}")
 
-        # Generate image using local temp files
+        # Stage 1: Generate background
+        logger.info("Stage 1: Generating background...")
+        bg_generator = get_background_generator()
+        bg_result = bg_generator.generate_background(
+            prompt=background_prompt,
+            negative_prompt=background_negative,
+            num_inference_steps=request.num_inference_steps,
+            guidance_scale=request.guidance_scale,
+            seed=request.seed,
+            width=512,
+            height=768,
+        )
+
+        if not bg_result["success"]:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Background generation failed: {bg_result.get('error', 'Unknown error')}"
+            )
+
+        background_image = bg_result["image"]
+        logger.info("Background generated successfully")
+
+        # Stage 2: Generate person with two-stage compositing
+        logger.info("Stage 2: Generating person and compositing...")
         generator = get_image_generator()
-        result = generator.generate_image(
+        result = generator.generate_image_two_stage(
             embedding_path=str(temp_embedding_path),
+            background_image=background_image,
             image_path=str(temp_image_path) if temp_image_path else None,
-            prompt=prompt,
-            negative_prompt=negative_prompt,
+            prompt=person_prompt,
+            negative_prompt=person_negative,
             num_inference_steps=request.num_inference_steps,
             guidance_scale=request.guidance_scale,
             seed=request.seed,
@@ -374,7 +403,8 @@ async def generate_image(
                 "message": "Image generated successfully",
                 "generated_filename": generated_filename,
                 "embedding_filename": embedding_filename,
-                "prompt": prompt,
+                "person_prompt": person_prompt,
+                "background_prompt": background_prompt,
                 "mode": mode,
                 "email_sent": email_sent
             }

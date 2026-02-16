@@ -18,9 +18,10 @@ from models import User, GeneratedImage
 from database import SessionLocal  # Use the database module for DB connection
 from faceid_extractor import get_face_extractor
 from image_generator import get_image_generator
+from background_generator import get_background_generator
 from email_utils import send_motivation_email
 from storage import uploads_storage, embeddings_storage, generated_storage, USE_S3
-from prompt_generator import get_prompts_for_user
+from prompt_generator import get_prompts_for_user, get_person_prompt, get_background_prompt
 
 
 
@@ -133,8 +134,8 @@ def extract_face_for_user(user: User, extractor, db):
         return False
 
 
-def generate_for_user(user: User, generator, db):
-    """Generate motivational image for a single user"""
+def generate_for_user(user: User, generator, background_image, db):
+    """Generate motivational image for a single user using shared background"""
     temp_embedding_path = None
     temp_image_path = None
     temp_generated_path = None
@@ -167,15 +168,16 @@ def generate_for_user(user: User, generator, db):
         else:
             logger.warning(f"Image not found for {user.email}: {user.selfie_filename}")
 
-        # Get prompts based on user settings
-        prompt, negative_prompt = get_prompts_for_user(user)
+        # Get person prompt based on user settings
+        person_prompt, person_negative = get_person_prompt(user)
 
-        # Generate image using local temp files
-        result = generator.generate_image(
+        # Generate person and composite with shared background
+        result = generator.generate_image_two_stage(
             embedding_path=str(temp_embedding_path),
+            background_image=background_image,
             image_path=str(temp_image_path) if temp_image_path else None,
-            prompt=prompt,
-            negative_prompt=negative_prompt,
+            prompt=person_prompt,
+            negative_prompt=person_negative,
             num_inference_steps=30,
             guidance_scale=7.5,
             seed=None,  # Random seed for variation
@@ -334,6 +336,37 @@ def main():
         generator = get_image_generator()
         print("Image generator ready!", flush=True)
 
+        print("Initializing background generator...", flush=True)
+        logger.info("Initializing background generator...")
+        bg_generator = get_background_generator()
+        print("Background generator ready!", flush=True)
+
+        # Generate shared background for all users (based on day of week)
+        print("\nGenerating shared background for today...", flush=True)
+        logger.info("Generating shared background for today...")
+
+        # Use a dummy user just to get the background prompt (all users share same background)
+        background_prompt, background_negative = get_background_prompt(workout_users[0])
+
+        bg_result = bg_generator.generate_background(
+            prompt=background_prompt,
+            negative_prompt=background_negative,
+            num_inference_steps=30,
+            guidance_scale=7.5,
+            seed=None,
+            width=512,
+            height=768,
+        )
+
+        if not bg_result["success"]:
+            print(f"✗ Background generation failed: {bg_result.get('error')}", flush=True)
+            logger.error(f"Background generation failed: {bg_result.get('error')}")
+            return
+
+        shared_background = bg_result["image"]
+        print("✓ Shared background generated successfully!", flush=True)
+        logger.info("Shared background generated successfully")
+
         # Process each user: extract face if needed, then generate image
         extraction_count = 0
         success_count = 0
@@ -359,9 +392,9 @@ def main():
             elif result == "exists":
                 print(f"  ✓ Face embedding already exists", flush=True)
 
-            # Generate motivational image
+            # Generate motivational image with shared background
             print(f"  → Generating motivational image...", flush=True)
-            if generate_for_user(user, generator, db):
+            if generate_for_user(user, generator, shared_background, db):
                 print(f"  ✓ Image generated and email sent!", flush=True)
                 success_count += 1
             else:
