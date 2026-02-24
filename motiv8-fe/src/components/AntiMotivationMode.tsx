@@ -7,7 +7,7 @@ import './AntiMotivationMode.css';
 const API_BASE_URL =
   (import.meta as any).env?.VITE_API_BASE_URL || "https://api.motiv8me.io";
 
-type Mode = 'shame' | 'toned' | 'ripped' | 'furry';
+type Mode = 'shame' | 'toned' | 'ripped';
 
 const MODE_INFO: Record<Mode, { label: string; description: string; emoji: string }> = {
   shame: {
@@ -24,11 +24,6 @@ const MODE_INFO: Record<Mode, { label: string; description: string; emoji: strin
     label: 'Ripped',
     description: 'Push yourself with images of a muscular, ripped physique.',
     emoji: '💪',
-  },
-  furry: {
-    label: 'Furry',
-    description: 'Get motivated with anthropomorphic furry images that rotate daily between wolf, fox, and cat.',
-    emoji: '🐻',
   },
 };
 

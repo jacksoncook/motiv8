@@ -42,21 +42,6 @@ def get_person_prompt(user: User):
     """
     gender_term = "female" if user.gender == "female" else "male"
 
-    # Winter sports activities - Cycling through 7 activities for 7 days
-    winter_activities = [
-        "curling, sliding granite stones across ice",
-        "skeleton racing, riding headfirst on a small sled",
-        "biathlon, combining cross-country skiing and rifle shooting",
-        "nordic combined, performing ski jumping",
-        "short track speed skating, racing on ice",
-        "freestyle skiing with aerial flips and tricks",
-        "bobsleigh, pushing and riding a racing sled"
-    ]
-
-    # Select activity based on day of week (0=Monday, 6=Sunday)
-    day_of_week = datetime.now().weekday()
-    activity = winter_activities[day_of_week % len(winter_activities)]
-
     # Gender component - female always gets "two piece", male gets "in underwear"
     if user.gender == "female":
         gender_component = f"full body photo of a {gender_term} in a two piece"
@@ -110,11 +95,10 @@ def get_person_prompt(user: User):
 
     # Build person prompt (no background)
     # Add "professional" prefix for non-shame modes, include "plain background" to avoid generating scenery
-    # Include winter activity in the pose/action
     if mode != "shame":
-        person_prompt = f"professional {gender_component} {mode_component}, in action pose for {activity}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
+        person_prompt = f"professional {gender_component} {mode_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
     else:
-        person_prompt = f"{gender_component} {mode_component}, in action pose for {activity}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
+        person_prompt = f"{gender_component} {mode_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
 
     return person_prompt, negative_prompt
 
@@ -129,23 +113,23 @@ def get_background_prompt(user: User):
     Returns:
         tuple: (background_prompt, background_negative_prompt)
     """
-    # Ski Resorts - Cycling through world-class destinations (7 resorts for 7 days)
-    ski_resorts = [
-        "Niseko, Japan with ultra-light powder snow, birch forests lit for night skiing, and natural onsens with mountain views",
-        "Chamonix, France with steep Alpine terrain beneath Mont Blanc, dramatic glacier views, and classic mountaineering atmosphere",
-        "Jackson Hole, USA with rugged Teton mountain peaks, steep snowy slopes, and Wild West lodge architecture",
-        "Zermatt, Switzerland with the iconic Matterhorn peak, car-free Alpine village, and pristine glacier skiing terrain",
-        "Revelstoke, Canada with deep powder snow, towering mountain peaks, and one of North America's biggest vertical drops",
-        "Gulmarg, India with Himalayan mountain peaks, one of the world's highest gondolas, and vast ungroomed off-piste terrain",
-        "Portillo, Chile with steep Andes mountain slopes, bright blue Laguna del Inca lake, and remote high-altitude ski terrain"
+    # Latin American Monuments - Cycling through 7 iconic landmarks (one for each day)
+    monuments = [
+        "Machu Picchu, Peru with ancient Incan stone terraces, dramatic mountain peaks, and morning mist",
+        "Chichen Itza, Mexico with the Kukulkan pyramid, ancient Mayan stone carvings, and jungle surroundings",
+        "Christ the Redeemer statue in Rio de Janeiro, Brazil with panoramic views of the city and Sugarloaf Mountain",
+        "Tikal temples, Guatemala with towering Mayan pyramids emerging from dense rainforest canopy",
+        "Moai statues on Easter Island, Chile with massive stone figures against dramatic coastal cliffs and Pacific Ocean",
+        "Cartagena's Old City walls, Colombia with colorful colonial architecture, Caribbean sea views, and historic fortifications",
+        "Teotihuacan, Mexico with the massive Pyramid of the Sun and ancient Avenue of the Dead stretching into the distance"
     ]
 
-    # Select resort based on day of week (0=Monday, 6=Sunday)
+    # Select monument based on day of week (0=Monday, 6=Sunday)
     day_of_week = datetime.now().weekday()
-    resort_background = ski_resorts[day_of_week % len(ski_resorts)]
+    monument_background = monuments[day_of_week % len(monuments)]
 
     # Background-only prompt
-    background_prompt = f"scenic mountain landscape of {resort_background}, no people, empty scene, highly detailed, 8k, photorealistic"
+    background_prompt = f"scenic landscape of {monument_background}, no people, empty scene, highly detailed, 8k, photorealistic"
     background_negative_prompt = "blurry, low quality, distorted, people, person, human, face, body, character, figure"
 
     return background_prompt, background_negative_prompt
