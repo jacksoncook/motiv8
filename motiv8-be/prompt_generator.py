@@ -48,6 +48,45 @@ def get_person_prompt(user: User):
     else:
         gender_component = f"full body photo of a {gender_term} in underwear"
 
+    # Athletic poses - One for each day of the month (30 total)
+    poses = [
+        "sprint start (crouched at starting blocks)",
+        "full sprint stride (mid-run extension)",
+        "long jump takeoff",
+        "long jump landing",
+        "high jump arch (Fosbury flop)",
+        "basketball jump shot release",
+        "basketball dunk mid-air",
+        "soccer kick (striking the ball)",
+        "soccer goalie diving save",
+        "tennis forehand swing",
+        "tennis serve toss and strike",
+        "baseball pitch windup",
+        "baseball bat swing follow-through",
+        "golf swing at full extension",
+        "boxer throwing a punch",
+        "boxer defensive guard stance",
+        "MMA fighter mid-kick",
+        "yoga warrior pose (Warrior II)",
+        "yoga downward dog",
+        "gymnast handstand",
+        "gymnast mid-flip (tucked rotation)",
+        "breakdancer freeze (one-arm balance)",
+        "weightlifter deadlift lockout",
+        "weightlifter clean and jerk overhead",
+        "rock climber reaching upward on a wall",
+        "swimmer diving into water",
+        "swimmer freestyle stroke mid-pull",
+        "cyclist leaning into a turn",
+        "skater performing a jump (mid-air spin)",
+        "surfer riding a wave (balanced stance)"
+    ]
+
+    # Select pose based on day of month (1-30/31)
+    day_of_month = datetime.now().day
+    selected_pose = poses[(day_of_month - 1) % len(poses)]
+    pose_component = f"in {selected_pose}"
+
     # Mode component based on user's selected mode
     # Fallback to anti_motivation_mode for backward compatibility
     mode = user.mode or ("shame" if user.anti_motivation_mode else ("toned" if user.gender == "female" else "ripped"))
@@ -96,9 +135,9 @@ def get_person_prompt(user: User):
     # Build person prompt (no background)
     # Add "professional" prefix for non-shame modes, include "plain background" to avoid generating scenery
     if mode != "shame":
-        person_prompt = f"professional {gender_component} {mode_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
+        person_prompt = f"professional {gender_component} {mode_component} {pose_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
     else:
-        person_prompt = f"{gender_component} {mode_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
+        person_prompt = f"{gender_component} {mode_component} {pose_component}, plain neutral background, studio lighting, highly detailed, 8k, photorealistic"
 
     return person_prompt, negative_prompt
 
@@ -113,23 +152,47 @@ def get_background_prompt(user: User):
     Returns:
         tuple: (background_prompt, background_negative_prompt)
     """
-    # Latin American Monuments - Cycling through 7 iconic landmarks (one for each day)
-    monuments = [
-        "Machu Picchu, Peru with ancient Incan stone terraces, dramatic mountain peaks, and morning mist",
-        "Chichen Itza, Mexico with the Kukulkan pyramid, ancient Mayan stone carvings, and jungle surroundings",
-        "Christ the Redeemer statue in Rio de Janeiro, Brazil with panoramic views of the city and Sugarloaf Mountain",
-        "Tikal temples, Guatemala with towering Mayan pyramids emerging from dense rainforest canopy",
-        "Moai statues on Easter Island, Chile with massive stone figures against dramatic coastal cliffs and Pacific Ocean",
-        "Cartagena's Old City walls, Colombia with colorful colonial architecture, Caribbean sea views, and historic fortifications",
-        "Teotihuacan, Mexico with the massive Pyramid of the Sun and ancient Avenue of the Dead stretching into the distance"
+    # Nature & Wildlife Scenes - One for each day of the month (30 total)
+    backgrounds = [
+        "A hyperrealistic rainforest at dawn with a jaguar silently emerging from dense mist, water droplets on leaves, cinematic lighting, ultra-detailed foliage",
+        "A snowy Arctic landscape with a lone polar bear walking across cracked ice under a glowing aurora borealis, photorealistic textures",
+        "A golden savanna at sunset with a pride of lions resting under an acacia tree, long shadows, dust particles in warm light",
+        "A deep ocean abyss with a bioluminescent jellyfish illuminating the dark water, floating particles, highly detailed light diffusion",
+        "A misty bamboo forest with a giant panda eating leaves, soft diffused light, atmospheric fog",
+        "A desert canyon with a rattlesnake coiled on sunlit rocks, heat haze, sharp shadows, ultra-detailed scales",
+        "A tropical beach at sunrise with sea turtles crawling toward the ocean, wet sand reflections, soft pastel sky",
+        "A dense swamp with an alligator partially submerged in murky water, reflections, floating algae, moody lighting",
+        "A mountain cliff with an eagle soaring through dramatic clouds, sharp wind-swept details, high contrast sky",
+        "A lush meadow with a herd of deer grazing among wildflowers, morning dew, soft golden light",
+        "A dark cave interior with bats hanging from the ceiling, subtle light rays entering from above, textured rock surfaces",
+        "A coral reef ecosystem with colorful fish and a curious octopus blending into rocks, ultra-detailed underwater lighting",
+        "A foggy forest clearing with a wolf pack moving through shadows, soft blue tones, cinematic atmosphere",
+        "A frozen tundra with a snow fox camouflaged in white terrain, minimal color palette, crisp detail",
+        "A riverbank at sunset with a hippo partially submerged, rippling water reflections, warm orange glow",
+        "A dense jungle canopy with a toucan perched on a branch, vibrant colors, depth of field blur",
+        "A rocky shoreline with seals lounging on wet stones, crashing waves, realistic water splashes",
+        "A stormy grassland with a herd of elephants walking through rain, dramatic clouds, wet skin textures",
+        "A night desert scene with a scorpion glowing under ultraviolet light, star-filled sky, high contrast",
+        "A tranquil pond with a koi fish swimming beneath lily pads, crystal clear water, soft reflections",
+        "A volcanic landscape with a Komodo dragon walking near flowing lava, heat glow, rugged terrain",
+        "A snowy forest with a moose standing among frosted trees, breath visible in cold air",
+        "A city rooftop garden at dusk with pigeons perched along ledges, urban skyline bokeh",
+        "A mangrove forest with a crocodile gliding through shallow water, tangled roots, filtered sunlight",
+        "A windswept steppe with wild horses running across open plains, motion blur, dramatic sky",
+        "A cherry blossom garden with a red fox sitting among falling petals, soft pink tones, serene mood",
+        "A dense rainforest river with a capybara lounging at the edge, humid atmosphere, rich greens",
+        "A high-altitude Himalayan ridge with a snow leopard perched on rocks, expansive mountain backdrop",
+        "A farm field at sunrise with a rooster crowing on a wooden fence, golden haze, rustic detail",
+        "A mystical forest at twilight with fireflies surrounding a resting stag, glowing particles, ethereal lighting"
     ]
 
-    # Select monument based on day of week (0=Monday, 6=Sunday)
-    day_of_week = datetime.now().weekday()
-    monument_background = monuments[day_of_week % len(monuments)]
+    # Select background based on day of month (1-30/31)
+    day_of_month = datetime.now().day
+    # Use modulo to handle days 31 in longer months
+    selected_background = backgrounds[(day_of_month - 1) % len(backgrounds)]
 
     # Background-only prompt
-    background_prompt = f"scenic landscape of {monument_background}, no people, empty scene, highly detailed, 8k, photorealistic"
+    background_prompt = f"{selected_background}, no people, empty scene"
     background_negative_prompt = "blurry, low quality, distorted, people, person, human, face, body, character, figure"
 
     return background_prompt, background_negative_prompt
