@@ -185,44 +185,75 @@ def get_background_prompt(user: User):
     Returns:
         tuple: (background_prompt, background_negative_prompt)
     """
-    # Nature & Wildlife Scenes - One for each day of the month (30 total)
     backgrounds = [
-        "A hyperrealistic rainforest at dawn with a jaguar silently emerging from dense mist, water droplets on leaves, cinematic lighting, ultra-detailed foliage",
-        "A snowy Arctic landscape with a lone polar bear walking across cracked ice under a glowing aurora borealis, photorealistic textures",
-        "A golden savanna at sunset with a pride of lions resting under an acacia tree, long shadows, dust particles in warm light",
-        "A deep ocean abyss with a bioluminescent jellyfish illuminating the dark water, floating particles, highly detailed light diffusion",
-        "A misty bamboo forest with a giant panda eating leaves, soft diffused light, atmospheric fog",
-        "A desert canyon with a rattlesnake coiled on sunlit rocks, heat haze, sharp shadows, ultra-detailed scales",
-        "A tropical beach at sunrise with sea turtles crawling toward the ocean, wet sand reflections, soft pastel sky",
-        "A dense swamp with an alligator partially submerged in murky water, reflections, floating algae, moody lighting",
-        "A mountain cliff with an eagle soaring through dramatic clouds, sharp wind-swept details, high contrast sky",
-        "A lush meadow with a herd of deer grazing among wildflowers, morning dew, soft golden light",
-        "A dark cave interior with bats hanging from the ceiling, subtle light rays entering from above, textured rock surfaces",
-        "A coral reef ecosystem with colorful fish and a curious octopus blending into rocks, ultra-detailed underwater lighting",
-        "A foggy forest clearing with a wolf pack moving through shadows, soft blue tones, cinematic atmosphere",
-        "A frozen tundra with a snow fox camouflaged in white terrain, minimal color palette, crisp detail",
-        "A riverbank at sunset with a hippo partially submerged, rippling water reflections, warm orange glow",
-        "A dense jungle canopy with a toucan perched on a branch, vibrant colors, depth of field blur",
-        "A rocky shoreline with seals lounging on wet stones, crashing waves, realistic water splashes",
-        "A stormy grassland with a herd of elephants walking through rain, dramatic clouds, wet skin textures",
-        "A night desert scene with a scorpion glowing under ultraviolet light, star-filled sky, high contrast",
-        "A tranquil pond with a koi fish swimming beneath lily pads, crystal clear water, soft reflections",
-        "A volcanic landscape with a Komodo dragon walking near flowing lava, heat glow, rugged terrain",
-        "A snowy forest with a moose standing among frosted trees, breath visible in cold air",
-        "A city rooftop garden at dusk with pigeons perched along ledges, urban skyline bokeh",
-        "A mangrove forest with a crocodile gliding through shallow water, tangled roots, filtered sunlight",
-        "A windswept steppe with wild horses running across open plains, motion blur, dramatic sky",
-        "A cherry blossom garden with a red fox sitting among falling petals, soft pink tones, serene mood",
-        "A dense rainforest river with a capybara lounging at the edge, humid atmosphere, rich greens",
-        "A high-altitude Himalayan ridge with a snow leopard perched on rocks, expansive mountain backdrop",
-        "A farm field at sunrise with a rooster crowing on a wooden fence, golden haze, rustic detail",
-        "A mystical forest at twilight with fireflies surrounding a resting stag, glowing particles, ethereal lighting"
+        # Set A (indices 0-29) - athletic/sports contexts, matches even-month poses
+        "A packed Olympic athletics stadium at night, rubber track lit by floodlights, roaring crowd in the stands, motion-blur finish line tape",
+        "A professional NBA arena with hardwood court, bright overhead lights, crowd bokeh in the background, dramatic spotlight",
+        "An NBA arena at peak atmosphere, rim and backboard lit from above, confetti falling, wide-angle court view",
+        "A FIFA World Cup stadium at golden hour, lush green pitch, packed stands blurred, dramatic sky above",
+        "A centre-court tennis stadium with manicured grass, white lines crisp, empty opponent's side, dramatic overhead lighting",
+        "A grand-slam tennis court at dusk, stadium lights warming the clay surface, crowd noise implied by blurred stands",
+        "A Major League Baseball diamond at twilight, infield dirt glowing under stadium lights, outfield grass vivid green",
+        "A baseball stadium from the pitcher's mound perspective, batter's box lit, packed crowd blurred behind",
+        "A pristine golf course fairway at sunrise, morning mist rising over manicured grass, distant flag on the green",
+        "A professional boxing ring under harsh overhead lights, red and blue corner posts, crowd dark beyond the ropes",
+        "A gritty boxing gym interior, speed bags hanging, worn canvas floor, single overhead lamp casting hard shadows",
+        "An MMA octagon under dramatic arena lighting, chain-link fence casting grid shadows, crowd haze beyond",
+        "An open-air yoga retreat at sunrise, wooden deck overlooking misty mountains, soft warm light, incense smoke curling",
+        "A world-class Olympic weightlifting platform under competition lighting, scoreboard visible, silent arena",
+        "A CrossFit competition floor with rubber mats, chalk dust floating in spotlight beams, industrial warehouse feel",
+        "A dramatic granite cliff face in Yosemite, sheer vertical rock stretching out of frame, valley far below",
+        "A winding mountain road in the Alps at dawn, pine trees flanking the descent, fresh asphalt glistening",
+        "A professional skate park halfpipe at sunset, smooth concrete, graffiti murals on surrounding walls",
+        "A massive ocean wave off the coast of Hawaii, deep blue water, white foam crest, horizon stretching wide",
+        "A sun-drenched beach volleyball court at a professional tournament, white sand, net casting a long shadow",
+        "An NFL stadium at game time, football field with yard lines vivid, end zone visible, deafening crowd blurred",
+        "An Olympic gymnastics arena, balance beam lit by a single spot, blue mats below, judges' table in background",
+        "A traditional Japanese dojo interior, polished wooden floor, red and white flags on the wall, paper lanterns",
+        "An elegant European fencing hall, piste strip stretching into distance, high arched ceilings, soft ambient light",
+        "A tranquil Japanese garden at dawn, stone path between maple trees, lantern glowing, koi pond reflecting sky",
+        "A vibrant Brazilian favela courtyard with capoeira drums, colorful murals on walls, warm evening light",
+        "A dramatic rocky mountain summit at sunrise, 360-degree view of peaks below, golden alpenglow on clouds",
+        "A fresh powder ski slope in the Swiss Alps, pristine white snow, pine trees frosted, sky a deep electric blue",
+        "A muddy motocross track with berms and jumps, roost flying, grandstand visible behind chain-link fence",
+        "A grand concert hall with a full orchestra pit, gilded ceiling, tiered balconies, warm amber stage lighting",
+        # Set B (indices 30-59) - occupational/character contexts, matches odd-month poses
+        "A grand university library with floor-to-ceiling mahogany shelves, rolling ladders, warm reading lamp pools, dust motes in shafts of light",
+        "A lush zoo enclosure with tropical foliage, rope swings, a mossy rock wall, dappled sunlight filtering through canopy",
+        "A rustic cattle ranch at golden hour, weathered wooden fence posts, open prairie stretching to the horizon, dust haze",
+        "A professional restaurant kitchen, gleaming stainless steel surfaces, copper pots hanging overhead, flames from a gas range",
+        "A residential street engulfed in dramatic orange flames and thick smoke, fire truck lights strobing in the foreground",
+        "A sterile hospital operating theatre, surgical lights overhead, blue drapes, vital-signs monitor glowing in the corner",
+        "A downtown construction site at midday, steel skeleton of a skyscraper rising, crane silhouetted against blue sky",
+        "A sunlit artist's studio with canvas-covered floors, paint-splattered walls, large skylights flooding the room with soft light",
+        "A packed rock concert stage, laser beams cutting through haze, crowd of thousands lit by moving lights below",
+        "A dark nightclub interior with glowing turntables, purple and blue LED wash, crowd of silhouettes on the dance floor",
+        "A sweeping National Park trail head at dusk, old-growth trees towering, wooden signpost, mountains fading in the mist",
+        "The lunar surface at night, Earth rising on the horizon, scattered moon rocks, inky black sky full of stars",
+        "A high-tech research laboratory with glowing centrifuges, neon blue lighting, racks of specimen tubes, clean-room atmosphere",
+        "A vintage school classroom with chalk-dusted blackboard, rows of wooden desks, afternoon light through tall windows",
+        "A golden wheat field at harvest time, combine harvester tracks in the distance, dramatic cumulus clouds overhead",
+        "A misty lake at dawn, wooden dock stretching into still water, reeds along the bank, soft pink sky reflecting below",
+        "A dense medieval forest with archery targets tied to oak trees, shafts of light through the canopy, carpet of leaves",
+        "A stone medieval castle courtyard, moss on the battlements, flags snapping in the wind, grey overcast dramatic sky",
+        "A serene Japanese bamboo grove at dawn, shafts of pale light through tall stalks, stone lantern in the foreground",
+        "A sweeping American western prairie at sunset, red rock buttes on the horizon, tumbleweeds, amber dust in the air",
+        "A dense Amazon jungle with hanging vines, exotic birds in the canopy, a narrow overgrown path disappearing into shadow",
+        "A grand circus tent interior with red and gold stripes, sawdust ring below, spotlight beams crossing in the air",
+        "A clear blue sky at altitude with a patchwork of farmland visible 10,000 feet below, wispy clouds at eye level",
+        "A dusty professional rodeo arena with wooden chutes, cowboy hat crowd in bleachers, dirt churned up in the ring",
+        "A massive outdoor music festival crowd at night, LED stage lighting painting the sky, thousands of phones raised",
+        "A busy urban intersection at midday, yellow taxi cabs, pedestrians blurred on crosswalks, glass skyscrapers reflecting sun",
+        "A grand theatre stage from the wings, velvet curtains parted, spotlight illuminating the empty centre stage, orchestra pit below",
+        "A ceremonial military parade ground with crisp stone paving, national flags lining the path, reviewing stand in the distance",
+        "A white sand beach at midday, ocean stretching to the horizon, lifeguard tower casting a shadow on the sand",
+        "A Formula 1 pit lane during a race, blurred pit crew equipment, tire marks on the tarmac, grandstand in the background",
     ]
 
-    # Select background based on day of month (1-30/31)
-    day_of_month = datetime.now().day
-    # Use modulo to handle days 31 in longer months
-    selected_background = backgrounds[(day_of_month - 1) % len(backgrounds)]
+    # Odd months use set B (indices 30-59), even months use set A (indices 0-29)
+    now = datetime.now()
+    bg_index = (30 * (now.month % 2) + (now.day - 1)) % 60
+    selected_background = backgrounds[bg_index]
 
     # Background-only prompt
     background_prompt = f"{selected_background}, no people, empty scene"
