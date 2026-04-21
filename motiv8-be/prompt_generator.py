@@ -94,15 +94,15 @@ def get_person_prompt(user: User):
     if mode == "shame":
         # Shame mode: demotivational, unhealthy appearance - same for all genders
         mode_component = "who is obese, overweight, hairy, unhealthy, ill-looking, out of shape, slovenly appearance"
-        negative_prompt = "blurry, low quality, distorted, deformed, monochrome, lowres, worst quality, low quality, muscular, fit, healthy, athletic, nude, naked, nudity, exposed genitals"
+        negative_prompt = "blurry, low quality, distorted, deformed, deformed limbs, extra limbs, missing limbs, monochrome, lowres, worst quality, muscular, fit, healthy, athletic, nude, naked, nudity, exposed genitals"
     elif mode == "toned":
         # Toned mode: athletic, fit physique
         mode_component = "with toned athletic physique"
-        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
+        negative_prompt = "blurry, low quality, distorted, deformed, deformed limbs, extra limbs, missing limbs, ugly, bad anatomy, monochrome, lowres, worst quality, nude, naked, nudity, exposed genitals"
     elif mode == "ripped":
         # Ripped mode: extremely muscular, bodybuilder physique
         mode_component = "bodybuilder with extremely muscular physique"
-        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals"
+        negative_prompt = "blurry, low quality, distorted, deformed, deformed limbs, extra limbs, missing limbs, ugly, bad anatomy, monochrome, lowres, worst quality, nude, naked, nudity, exposed genitals"
     elif mode == "furry":
         # Furry mode: human face with animal features and furry body
         # Randomly selects an animal type for variety
@@ -126,11 +126,11 @@ def get_person_prompt(user: User):
             clothing = "wearing fitted athletic briefs designed for a furry body"
 
         mode_component = f"{animal_description}, {clothing}, maintaining human face and facial structure, ultra-detailed fur texture on body, high-end VFX realism, cinematic lighting, shallow depth of field, 8k detail"
-        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, lowres, worst quality, nude, naked, nudity, exposed genitals, cartoon, anime, animal muzzle, animal snout, full animal face, beast face"
+        negative_prompt = "blurry, low quality, distorted, deformed, deformed limbs, extra limbs, missing limbs, ugly, bad anatomy, lowres, worst quality, nude, naked, nudity, exposed genitals, cartoon, anime, animal muzzle, animal snout, full animal face, beast face"
     else:
         # Default to toned if mode is invalid
         mode_component = "with toned athletic physique"
-        negative_prompt = "blurry, low quality, distorted, deformed, ugly, bad anatomy, monochrome, lowres, bad anatomy, worst quality, low quality, nude, naked, nudity, exposed genitals, background, scenery, buildings, landscape"
+        negative_prompt = "blurry, low quality, distorted, deformed, deformed limbs, extra limbs, missing limbs, ugly, bad anatomy, monochrome, lowres, worst quality, nude, naked, nudity, exposed genitals, background, scenery, buildings, landscape"
 
     # Build person prompt (no background)
     # Add "professional" prefix for non-shame modes, include "plain background" to avoid generating scenery
