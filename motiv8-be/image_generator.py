@@ -68,7 +68,6 @@ class ImageGenerator:
             logger.info("Loading VAE...")
             vae = AutoencoderKL.from_pretrained(vae_model_path).to(self.device, dtype=self.dtype)
 
-            # Create base pipeline in the same dtype/device
             logger.info("Loading Stable Diffusion pipeline...")
             pipe = StableDiffusionPipeline.from_pretrained(
                 base_model_path,
@@ -195,11 +194,8 @@ class ImageGenerator:
         scale: float = 0.8,
     ) -> Dict[str, Any]:
         """
-        Generate an image by inpainting the person directly into the background scene.
-
-        The person is generated aware of the surrounding background, so environmental
-        elements (water, walls, terrain) naturally interact with the pose rather than
-        being stripped by background removal.
+        Generate a person and composite them onto the background using a feathered
+        ellipse mask for a smooth edge blend (no rembg hard cutout).
 
         Args:
             embedding_path: Path to the .npy embedding file
@@ -215,67 +211,42 @@ class ImageGenerator:
         Returns:
             Dictionary containing:
                 - success: boolean
-                - image: Final inpainted PIL Image if successful
+                - image: Final composited PIL Image if successful
                 - error: error message if failed
         """
-        if not self._initialized:
-            self.initialize()
-
         try:
-            from image_compositor import create_person_mask
-
-            # Load and prepare face embedding
-            embedding = np.load(embedding_path).astype(np.float32)
-            faceid_embeds = (
-                torch.from_numpy(embedding)
-                .unsqueeze(0)
-                .to(device=self.device, dtype=self.dtype)
-            )
-            logger.info(f"Loaded embedding shape: {faceid_embeds.shape}")
-
-            # Load face image for CLIP encoding
-            face_image = None
-            if image_path and Path(image_path).exists():
-                face_image = Image.open(image_path).convert("RGB")
-                logger.info(f"Loaded face image from {image_path}")
-            else:
-                logger.warning("No face image provided; generation quality may be reduced.")
-
-            # Ensure background is RGB and correct size
-            bg = background_image.convert("RGB")
-            width, height = bg.size
-
-            # Create centered ellipse mask for the person region
-            mask = create_person_mask(width, height)
-            logger.info(f"Created person mask ({width}x{height})")
-
-            logger.info(f"Inpainting person with prompt: {prompt}")
-
-            images = self.ip_model.generate(
+            # Step 1: Generate person with plain background
+            logger.info("Step 1: Generating person image...")
+            person_result = self.generate_image(
+                embedding_path=embedding_path,
+                image_path=image_path,
                 prompt=prompt,
                 negative_prompt=negative_prompt,
-                face_image=face_image,
-                faceid_embeds=faceid_embeds,
-                shortcut=False,
-                s_scale=1.0,
-                num_samples=1,
-                width=width,
-                height=height,
                 num_inference_steps=num_inference_steps,
                 guidance_scale=guidance_scale,
                 seed=seed,
                 scale=scale,
-                image=bg,
-                mask_image=mask,
             )
 
-            final_image = images[0] if isinstance(images, list) else images
-            logger.info("Inpainting completed successfully")
+            if not person_result["success"]:
+                return person_result
 
+            person_image = person_result["image"]
+
+            # Step 2: Composite using feathered ellipse mask
+            logger.info("Step 2: Compositing with feathered mask...")
+            from image_compositor import composite_person_feathered
+
+            final_image = composite_person_feathered(
+                person_image=person_image,
+                background_image=background_image,
+            )
+
+            logger.info("Two-stage generation completed successfully")
             return {"success": True, "image": final_image}
 
         except Exception as e:
-            logger.error(f"Error in inpainting generation: {e}", exc_info=True)
+            logger.error(f"Error in two-stage generation: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
 
     def save_image(self, image: Image.Image, output_path: str) -> bool:

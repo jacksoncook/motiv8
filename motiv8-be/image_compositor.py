@@ -3,7 +3,7 @@ Image Compositor - Utilities for background removal and compositing
 """
 
 import logging
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -47,9 +47,9 @@ def create_person_mask(width: int, height: int) -> Image.Image:
     mask = Image.new("L", (width, height), 0)
     draw = ImageDraw.Draw(mask)
 
-    margin_x = int(width * 0.15)
-    margin_top = int(height * 0.03)
-    margin_bottom = int(height * 0.08)
+    margin_x = int(width * 0.05)
+    margin_top = int(height * 0.01)
+    margin_bottom = int(height * 0.01)
 
     draw.ellipse(
         [margin_x, margin_top, width - margin_x, height - margin_bottom],
@@ -57,6 +57,48 @@ def create_person_mask(width: int, height: int) -> Image.Image:
     )
 
     return mask
+
+
+def composite_person_feathered(
+    person_image: Image.Image,
+    background_image: Image.Image,
+    feather_radius: int = 8,
+) -> Image.Image:
+    """
+    Composite a person onto a background using rembg for accurate subject
+    extraction, then blur the alpha channel edges to avoid a hard cutout seam.
+
+    Args:
+        person_image: Generated person image (RGB)
+        background_image: Background scene image (RGB)
+        feather_radius: Gaussian blur radius applied to rembg alpha edges
+
+    Returns:
+        Composited RGB image
+    """
+    _ensure_rembg_loaded()
+
+    person = person_image.convert("RGB")
+    bg = background_image.convert("RGB")
+
+    if person.size != bg.size:
+        bg = bg.resize(person.size, Image.LANCZOS)
+
+    # Remove background to get accurate person silhouette
+    person_rgba = _remove_func(person.convert("RGBA"))
+    if isinstance(person_rgba, bytes):
+        from io import BytesIO
+        person_rgba = Image.open(BytesIO(person_rgba))
+    person_rgba = person_rgba.convert("RGBA")
+
+    # Soften the hard rembg alpha edges
+    r, g, b, alpha = person_rgba.split()
+    alpha = alpha.filter(ImageFilter.GaussianBlur(radius=feather_radius))
+    person_rgba = Image.merge("RGBA", (r, g, b, alpha))
+
+    # Composite onto background
+    result = Image.alpha_composite(bg.convert("RGBA"), person_rgba)
+    return result.convert("RGB")
 
 
 def remove_background(image: Image.Image) -> Image.Image:

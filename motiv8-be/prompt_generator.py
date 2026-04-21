@@ -48,17 +48,13 @@ def get_person_prompt(user: User):
     else:
         gender_component = f"full body photo of a {gender_term} in underwear"
 
-    # Athletic poses - One for each day of the month (30 total)
+    # 60 upright poses - selection alternates sets of 30 by odd/even month
     poses = [
-        "sprint start (crouched at starting blocks)",
-        "full sprint stride (mid-run extension)",
-        "long jump takeoff",
-        "long jump landing",
-        "high jump arch (Fosbury flop)",
+        # Set A (indices 0-29) - used on even months
+        "full sprint stride (mid-run, upright)",
         "basketball jump shot release",
         "basketball dunk mid-air",
         "soccer kick (striking the ball)",
-        "soccer goalie diving save",
         "tennis forehand swing",
         "tennis serve toss and strike",
         "baseball pitch windup",
@@ -68,23 +64,60 @@ def get_person_prompt(user: User):
         "boxer defensive guard stance",
         "MMA fighter mid-kick",
         "yoga warrior pose (Warrior II)",
-        "yoga downward dog",
-        "gymnast handstand",
-        "gymnast mid-flip (tucked rotation)",
-        "breakdancer freeze (one-arm balance)",
         "weightlifter deadlift lockout",
         "weightlifter clean and jerk overhead",
         "rock climber reaching upward on a wall",
-        "swimmer diving into water",
-        "swimmer freestyle stroke mid-pull",
         "cyclist leaning into a turn",
         "skater performing a jump (mid-air spin)",
-        "surfer riding a wave (balanced stance)"
+        "surfer riding a wave (balanced stance)",
+        "volleyball player spiking mid-air",
+        "quarterback throwing a football",
+        "gymnast on balance beam, arms extended",
+        "martial artist in fighting stance",
+        "fencer in lunging attack",
+        "yoga tree pose (Vrksasana)",
+        "capoeira fighter in ginga stance",
+        "hiker reaching mountain summit, arms raised",
+        "snowboarder catching big air",
+        "motocross rider mid-jump on dirt bike",
+        "conductor leading an orchestra, baton raised",
+        # Set B (indices 30-59) - used on odd months
+        "librarian holding a large book open, reading aloud",
+        "zookeeper with a monkey perched on their shoulder",
+        "rancher leaning over a fence feeding a cow",
+        "chef tossing pizza dough high in the air",
+        "firefighter gripping a hose, spraying water",
+        "surgeon in scrubs, gloved hands raised",
+        "construction worker swinging a hammer overhead",
+        "painter on a ladder, brush raised to a canvas",
+        "musician playing electric guitar on stage",
+        "DJ at turntables, one hand raised",
+        "park ranger pointing at a trail map on a post",
+        "astronaut in spacesuit standing on lunar surface",
+        "scientist holding up a glowing flask",
+        "teacher pointing at a chalkboard",
+        "farmer throwing seeds across an open field",
+        "fisherman casting a fishing line",
+        "archer drawing a bow, aimed upward",
+        "knight in armor holding a sword aloft",
+        "samurai in ready stance gripping a katana",
+        "cowboy spinning a lasso overhead on horseback",
+        "explorer in jungle with machete raised",
+        "circus performer juggling torches",
+        "skydiver in freefall spread-eagle position",
+        "bull rider gripping the rope on a bucking bull",
+        "rock musician crowd surfing, arms outstretched",
+        "police officer directing traffic, arm raised",
+        "dancer mid-leap on stage",
+        "soldier standing at attention in full uniform",
+        "lifeguard standing on watchtower scanning the horizon",
+        "race car driver standing beside car, helmet raised",
     ]
 
-    # Select pose based on day of month (1-30/31)
-    day_of_month = datetime.now().day
-    selected_pose = poses[(day_of_month - 1) % len(poses)]
+    # Odd months use set B (indices 30-59), even months use set A (indices 0-29)
+    now = datetime.now()
+    pose_index = (30 * (now.month % 2) + (now.day - 1)) % 60
+    selected_pose = poses[pose_index]
     pose_component = f"in {selected_pose}"
 
     # Mode component based on user's selected mode
