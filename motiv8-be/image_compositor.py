@@ -3,7 +3,7 @@ Image Compositor - Utilities for background removal and compositing
 """
 
 import logging
-from PIL import Image
+from PIL import Image, ImageDraw
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,36 @@ def _ensure_rembg_loaded():
             raise ImportError(
                 "rembg is required for background removal. Install with: pip install rembg"
             ) from e
+
+
+def create_person_mask(width: int, height: int) -> Image.Image:
+    """
+    Create a centered ellipse mask representing where the person should be inpainted.
+    White = region to inpaint, black = preserve background.
+
+    The ellipse covers ~90% of the height and ~70% of the width, centered
+    slightly above vertical midpoint to account for head room.
+
+    Args:
+        width: Image width in pixels
+        height: Image height in pixels
+
+    Returns:
+        Grayscale PIL Image mask
+    """
+    mask = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+
+    margin_x = int(width * 0.15)
+    margin_top = int(height * 0.03)
+    margin_bottom = int(height * 0.08)
+
+    draw.ellipse(
+        [margin_x, margin_top, width - margin_x, height - margin_bottom],
+        fill=255,
+    )
+
+    return mask
 
 
 def remove_background(image: Image.Image) -> Image.Image:
