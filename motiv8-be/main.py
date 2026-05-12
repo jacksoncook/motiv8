@@ -498,12 +498,13 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
 
         email = user_info.get('email')
         google_id = user_info.get('sub')
+        name = user_info.get('name')
 
         if not email:
             raise HTTPException(status_code=400, detail="Email not provided by Google")
 
         # Get or create user in database
-        user = get_or_create_user(db, email=email, google_id=google_id)
+        user = get_or_create_user(db, email=email, google_id=google_id, name=name)
 
         # Create JWT token
         access_token = create_access_token(data={"sub": user.id})
@@ -536,6 +537,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return {
         "id": current_user.id,
         "email": current_user.email,
+        "name": current_user.name,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
         "has_selfie": current_user.selfie_filename is not None,
         "selfie_filename": current_user.selfie_filename,

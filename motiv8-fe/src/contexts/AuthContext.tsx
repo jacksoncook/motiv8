@@ -7,6 +7,7 @@ const API_BASE_URL =
 interface User {
   id: string;
   email: string;
+  name: string | null;
   created_at: string;
   has_selfie: boolean;
   selfie_filename: string | null;

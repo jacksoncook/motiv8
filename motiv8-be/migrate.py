@@ -47,6 +47,13 @@ def migrate_sqlite():
         print(f"Current columns in users table: {column_names}")
 
         # Add missing columns if they don't exist
+        if 'name' not in column_names:
+            print('Adding name column...')
+            cursor.execute('ALTER TABLE users ADD COLUMN name VARCHAR')
+            print('✓ Added name column')
+        else:
+            print('✓ name column already exists')
+
         if 'selfie_filename' not in column_names:
             print('Adding selfie_filename column...')
             cursor.execute('ALTER TABLE users ADD COLUMN selfie_filename VARCHAR')
@@ -197,6 +204,13 @@ def migrate_postgresql():
         print(f"Current columns in users table: {column_names}")
 
         # Add missing columns if they don't exist
+        if 'name' not in column_names:
+            print('Adding name column...')
+            cursor.execute('ALTER TABLE users ADD COLUMN name VARCHAR')
+            print('✓ Added name column')
+        else:
+            print('✓ name column already exists')
+
         if 'selfie_filename' not in column_names:
             print('Adding selfie_filename column...')
             cursor.execute('ALTER TABLE users ADD COLUMN selfie_filename VARCHAR')

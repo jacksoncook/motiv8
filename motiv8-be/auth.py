@@ -111,7 +111,7 @@ async def get_current_user_from_query(
     return user
 
 
-def get_or_create_user(db: Session, email: str, google_id: Optional[str] = None) -> User:
+def get_or_create_user(db: Session, email: str, google_id: Optional[str] = None, name: Optional[str] = None) -> User:
     """Get existing user by email or create new one"""
     # Try to find by Google ID first if provided
     user = None
@@ -124,14 +124,20 @@ def get_or_create_user(db: Session, email: str, google_id: Optional[str] = None)
 
     # Create new user if doesn't exist
     if not user:
-        user = User(email=email, google_id=google_id)
+        user = User(email=email, google_id=google_id, name=name)
         db.add(user)
         db.commit()
         db.refresh(user)
-    elif google_id and not user.google_id:
-        # Update existing user with Google ID if it wasn't set
-        user.google_id = google_id
-        db.commit()
-        db.refresh(user)
+    else:
+        updated = False
+        if google_id and not user.google_id:
+            user.google_id = google_id
+            updated = True
+        if name and not user.name:
+            user.name = name
+            updated = True
+        if updated:
+            db.commit()
+            db.refresh(user)
 
     return user
