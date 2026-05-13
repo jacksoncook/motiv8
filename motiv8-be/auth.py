@@ -201,4 +201,10 @@ def verify_apple_token(token: str, jwks: dict, audience: str) -> dict:
         raise HTTPException(status_code=400, detail="Apple: matching public key not found")
 
     public_key = jose_jwk.construct(key_data)
-    return jwt.decode(token, public_key, algorithms=["RS256"], audience=audience)
+    return jwt.decode(
+        token,
+        public_key,
+        algorithms=["RS256"],
+        audience=audience,
+        options={"verify_at_hash": False},
+    )
