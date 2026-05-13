@@ -456,7 +456,7 @@ Resources:
               --region ${AWS::Region} \
               --query SecretString \
               --output text \
-            | python3 -c 'import json,sys; s=json.load(sys.stdin); [print(f"{k}={v}") for k,v in s.items()]' \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin); [print("{}={}".format(k, v.replace("\n", "\\n") if isinstance(v, str) else v)) for k,v in s.items()]' \
             > /app/motiv8-be/.env
 
             echo "CORS_ALLOWED_ORIGINS=https://${RootDomainName}" >> /app/motiv8-be/.env
