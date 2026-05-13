@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse, Response
 from starlette.middleware.sessions import SessionMiddleware
@@ -7,9 +7,13 @@ from typing import Optional
 import uvicorn
 import os
 import shutil
+import secrets
+import json
 from pathlib import Path
 from datetime import datetime, date, timedelta
+from urllib.parse import urlencode
 import logging
+import httpx
 from authlib.integrations.starlette_client import OAuth
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -30,7 +34,13 @@ from auth import (
     get_or_create_user,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
-    GOOGLE_REDIRECT_URI
+    GOOGLE_REDIRECT_URI,
+    APPLE_CLIENT_ID,
+    APPLE_TEAM_ID,
+    APPLE_REDIRECT_URI,
+    generate_apple_client_secret,
+    get_apple_public_keys,
+    verify_apple_token,
 )
 
 # Configure logging
@@ -516,6 +526,142 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"OAuth callback error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
+
+
+@app.get("/auth/apple/login")
+async def apple_login(request: Request):
+    """Initiate Apple Sign In — redirects to Apple's consent screen"""
+    state = secrets.token_urlsafe(32)
+    request.session["apple_oauth_state"] = state
+    params = {
+        "client_id": APPLE_CLIENT_ID,
+        "redirect_uri": APPLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "name email",
+        "response_mode": "form_post",
+        "state": state,
+    }
+    return RedirectResponse(url="https://appleid.apple.com/auth/authorize?" + urlencode(params))
+
+
+@app.post("/auth/apple/callback")
+async def apple_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+    code: str = Form(...),
+    state: Optional[str] = Form(None),
+    user: Optional[str] = Form(None),   # JSON string, only sent on first login
+    error: Optional[str] = Form(None),
+):
+    """Handle Apple Sign In callback (Apple POSTs back, unlike Google)"""
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+    if error:
+        logger.error(f"Apple OAuth error from Apple: {error}")
+        return RedirectResponse(url=f"{frontend_url}/?error=apple_auth_failed")
+
+    try:
+        # Verify CSRF state
+        expected_state = request.session.pop("apple_oauth_state", None)
+        if not state or state != expected_state:
+            raise HTTPException(status_code=400, detail="Invalid OAuth state")
+
+        # Exchange authorization code for tokens
+        client_secret = generate_apple_client_secret()
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                "https://appleid.apple.com/auth/token",
+                data={
+                    "client_id": APPLE_CLIENT_ID,
+                    "client_secret": client_secret,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": APPLE_REDIRECT_URI,
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            token_response.raise_for_status()
+            token_data = token_response.json()
+
+        id_token = token_data.get("id_token")
+        if not id_token:
+            raise HTTPException(status_code=400, detail="No id_token in Apple response")
+
+        # Verify id_token with Apple's public keys
+        jwks = await get_apple_public_keys()
+        claims = verify_apple_token(id_token, jwks, audience=APPLE_CLIENT_ID)
+
+        apple_id = claims.get("sub")
+        email = claims.get("email")  # Only present on first login
+
+        if not apple_id:
+            raise HTTPException(status_code=400, detail="No user ID in Apple id_token")
+
+        # Extract name from `user` form field (only sent on first login)
+        name = None
+        if user:
+            try:
+                user_data = json.loads(user)
+                name_data = user_data.get("name", {})
+                first = name_data.get("firstName", "")
+                last = name_data.get("lastName", "")
+                name = f"{first} {last}".strip() or None
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+        db_user = get_or_create_user(db, email=email, apple_id=apple_id, name=name)
+        access_token = create_access_token(data={"sub": db_user.id})
+        return RedirectResponse(url=f"{frontend_url}/?token={access_token}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Apple OAuth callback error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
+
+
+@app.post("/auth/apple/notifications")
+async def apple_notifications(
+    request: Request,
+    db: Session = Depends(get_db),
+    payload: str = Form(...),
+):
+    """
+    Apple server-to-server notifications.
+    See: https://developer.apple.com/documentation/sign_in_with_apple/processing_changes_for_sign_in_with_apple_accounts
+    """
+    try:
+        jwks = await get_apple_public_keys()
+        # Notification JWTs are addressed to the Team ID, not the Client ID
+        claims = verify_apple_token(payload, jwks, audience=APPLE_TEAM_ID)
+
+        events_raw = claims.get("events")
+        if not events_raw:
+            return {"status": "ok"}
+
+        event = json.loads(events_raw) if isinstance(events_raw, str) else events_raw
+        event_type = event.get("type")
+        apple_sub = event.get("sub")
+
+        logger.info(f"Apple notification received: type={event_type}, sub={apple_sub}")
+
+        if apple_sub and event_type in ("consent-revoked", "account-delete"):
+            db_user = db.query(User).filter(User.apple_id == apple_sub).first()
+            if db_user:
+                if event_type == "account-delete":
+                    db.delete(db_user)
+                    db.commit()
+                    logger.info(f"Deleted user {db_user.id} — Apple account deletion")
+                elif event_type == "consent-revoked":
+                    db_user.apple_id = None
+                    db.commit()
+                    logger.info(f"Cleared apple_id for user {db_user.id} — consent revoked")
+
+    except Exception as e:
+        # Always return 200 so Apple doesn't keep retrying
+        logger.error(f"Apple notification error: {e}", exc_info=True)
+
+    return {"status": "ok"}
 
 
 @app.get("/auth/me")

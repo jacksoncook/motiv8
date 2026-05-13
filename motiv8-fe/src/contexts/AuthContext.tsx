@@ -22,6 +22,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: () => void;
+  loginWithApple: () => void;
   logout: () => void;
   setToken: (token: string) => void;
   refreshUser: () => Promise<void>;
@@ -83,8 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = () => {
-    // Redirect to backend OAuth login
     window.location.href = `${API_BASE_URL}/auth/login`;
+  };
+
+  const loginWithApple = () => {
+    window.location.href = `${API_BASE_URL}/auth/apple/login`;
   };
 
   const logout = () => {
@@ -105,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, setToken, refreshUser, updateUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithApple, logout, setToken, refreshUser, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

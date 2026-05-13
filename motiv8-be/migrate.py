@@ -54,6 +54,14 @@ def migrate_sqlite():
         else:
             print('✓ name column already exists')
 
+        if 'apple_id' not in column_names:
+            print('Adding apple_id column...')
+            cursor.execute('ALTER TABLE users ADD COLUMN apple_id VARCHAR')
+            cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS ix_users_apple_id ON users (apple_id)')
+            print('✓ Added apple_id column')
+        else:
+            print('✓ apple_id column already exists')
+
         if 'selfie_filename' not in column_names:
             print('Adding selfie_filename column...')
             cursor.execute('ALTER TABLE users ADD COLUMN selfie_filename VARCHAR')
@@ -210,6 +218,14 @@ def migrate_postgresql():
             print('✓ Added name column')
         else:
             print('✓ name column already exists')
+
+        if 'apple_id' not in column_names:
+            print('Adding apple_id column...')
+            cursor.execute('ALTER TABLE users ADD COLUMN apple_id VARCHAR')
+            cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS ix_users_apple_id ON users (apple_id)')
+            print('✓ Added apple_id column')
+        else:
+            print('✓ apple_id column already exists')
 
         if 'selfie_filename' not in column_names:
             print('Adding selfie_filename column...')

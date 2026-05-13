@@ -42,6 +42,25 @@ Parameters:
     Description: Google OAuth Client Secret
     NoEcho: true
 
+  AppleClientId:
+    Type: String
+    Description: Apple Sign In Services ID (e.g. io.motiv8me.auth)
+
+  AppleTeamId:
+    Type: String
+    Description: Apple Developer Team ID
+    NoEcho: true
+
+  AppleKeyId:
+    Type: String
+    Description: Apple Sign In Key ID (GUD8BKWV88)
+    NoEcho: true
+
+  ApplePrivateKey:
+    Type: String
+    Description: Apple Sign In .p8 private key contents
+    NoEcho: true
+
   SMTPUser:
     Type: String
     Description: SMTP username for sending emails
@@ -382,6 +401,11 @@ Resources:
           "GOOGLE_CLIENT_ID": "${GoogleClientId}",
           "GOOGLE_CLIENT_SECRET": "${GoogleClientSecret}",
           "GOOGLE_REDIRECT_URI": "https://${ApiDomainName}/auth/callback",
+          "APPLE_CLIENT_ID": "${AppleClientId}",
+          "APPLE_TEAM_ID": "${AppleTeamId}",
+          "APPLE_KEY_ID": "${AppleKeyId}",
+          "APPLE_PRIVATE_KEY": "${ApplePrivateKey}",
+          "APPLE_REDIRECT_URI": "https://${ApiDomainName}/auth/apple/callback",
           "FRONTEND_URL": "https://${DomainName}",
           "SMTP_HOST": "smtp.gmail.com",
           "SMTP_PORT": "587",
