@@ -532,7 +532,6 @@ async def auth_callback(request: Request, db: Session = Depends(get_db)):
 async def apple_login(request: Request):
     """Initiate Apple Sign In — redirects to Apple's consent screen"""
     state = secrets.token_urlsafe(32)
-    request.session["apple_oauth_state"] = state
     params = {
         "client_id": APPLE_CLIENT_ID,
         "redirect_uri": APPLE_REDIRECT_URI,
@@ -541,7 +540,17 @@ async def apple_login(request: Request):
         "response_mode": "form_post",
         "state": state,
     }
-    return RedirectResponse(url="https://appleid.apple.com/auth/authorize?" + urlencode(params))
+    response = RedirectResponse(url="https://appleid.apple.com/auth/authorize?" + urlencode(params))
+    # SameSite=None; Secure required so the cookie is sent on Apple's cross-site POST callback
+    response.set_cookie(
+        "apple_oauth_state",
+        state,
+        max_age=600,
+        secure=True,
+        httponly=True,
+        samesite="none",
+    )
+    return response
 
 
 @app.post("/auth/apple/callback")
@@ -561,8 +570,8 @@ async def apple_callback(
         return RedirectResponse(url=f"{frontend_url}/?error=apple_auth_failed")
 
     try:
-        # Verify CSRF state
-        expected_state = request.session.pop("apple_oauth_state", None)
+        # Verify CSRF state (stored in SameSite=None cookie, which survives Apple's cross-site POST)
+        expected_state = request.cookies.get("apple_oauth_state")
         if not state or state != expected_state:
             raise HTTPException(status_code=400, detail="Invalid OAuth state")
 
@@ -611,7 +620,9 @@ async def apple_callback(
 
         db_user = get_or_create_user(db, email=email, apple_id=apple_id, name=name)
         access_token = create_access_token(data={"sub": db_user.id})
-        return RedirectResponse(url=f"{frontend_url}/?token={access_token}")
+        response = RedirectResponse(url=f"{frontend_url}/?token={access_token}")
+        response.delete_cookie("apple_oauth_state")
+        return response
 
     except HTTPException:
         raise
