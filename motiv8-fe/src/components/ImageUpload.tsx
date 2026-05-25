@@ -30,6 +30,7 @@ function ImageUpload() {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateResult, setGenerateResult] = useState<GenerateResponse | null>(null);
+  const [removingSelfie, setRemovingSelfie] = useState(false);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [currentSelfieUrl, setCurrentSelfieUrl] = useState<string | null>(null);
   const [canGenerate, setCanGenerate] = useState(false);
@@ -120,6 +121,24 @@ function ImageUpload() {
     }
   };
 
+  const handleRemoveSelfie = async () => {
+    setRemovingSelfie(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('auth_token');
+      await axios.delete(`${API_BASE_URL}/api/selfie`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      updateUser({ has_selfie: false, selfie_filename: undefined });
+      setCurrentSelfieUrl(null);
+      setUploadResult(null);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to remove selfie.');
+    } finally {
+      setRemovingSelfie(false);
+    }
+  };
+
   const handleGenerate = async () => {
     // Backend will automatically extract face if needed and use user's mode
     if (!user?.selfie_filename) {
@@ -205,6 +224,15 @@ function ImageUpload() {
               className="upload-button generate-button"
             >
               {generating ? 'Generating muscular body image...' : 'Generate muscular body image'}
+            </button>
+          )}
+          {canGenerate && user?.email === 'jacksoncook73@gmail.com' && (
+            <button
+              onClick={handleRemoveSelfie}
+              disabled={removingSelfie}
+              className="upload-button generate-button"
+            >
+              {removingSelfie ? 'Removing...' : 'Remove profile photo'}
             </button>
           )}
         </div>

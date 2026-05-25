@@ -217,6 +217,26 @@ async def upload_image(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
+@app.delete("/api/selfie")
+async def remove_selfie(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove a user's selfie reference (development only)"""
+    environment = os.getenv("ENVIRONMENT", "development")
+    if environment != "development":
+        raise HTTPException(status_code=403, detail="Selfie removal is disabled in production.")
+
+    if not current_user.selfie_filename:
+        raise HTTPException(status_code=404, detail="No selfie to remove.")
+
+    current_user.selfie_filename = None
+    current_user.selfie_embedding_filename = None
+    db.commit()
+
+    return {"message": "Selfie removed successfully."}
+
+
 class GenerateRequest(BaseModel):
     """Request body for image generation"""
     num_inference_steps: int = 30
