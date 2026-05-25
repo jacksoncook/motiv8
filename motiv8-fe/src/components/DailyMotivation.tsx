@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './DailyMotivation.css';
 
@@ -38,7 +39,7 @@ const getNextWorkoutMessage = (workoutDays: Record<string, boolean>): string => 
   }
 
   if (nextDayIndex === -1) {
-    return "No upcoming workout days scheduled";
+    return "";
   }
 
   // Create a date object for next workout day at 15:00 UTC
@@ -116,12 +117,16 @@ function DailyMotivation() {
   return (
     <div className="daily-motivation-container">
       <div className="daily-motivation-section">
-        <h2>Daily motivation</h2>
-
-        {user?.workout_days && (
-          <div className="next-workout-box">
-            {getNextWorkoutMessage(user.workout_days)}
-          </div>
+{user?.workout_days && (
+          Object.values(user.workout_days).some(Boolean) ? (
+            <div className="next-workout-box">
+              {getNextWorkoutMessage(user.workout_days)}
+            </div>
+          ) : (
+            <div className="next-workout-box no-days">
+              <Link to="/settings">Set your workout days</Link> to receive motivation
+            </div>
+          )
         )}
 
         {loading && (
@@ -138,7 +143,7 @@ function DailyMotivation() {
 
         {!loading && !error && !motivationData && (
           <div className="rest-message">
-            <h3>Rest up!</h3>
+            <img src="/restUp.png" alt="Rest up!" className="rest-up-image" />
           </div>
         )}
 

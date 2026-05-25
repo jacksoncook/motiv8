@@ -10,7 +10,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 12px;
   z-index: 1000;
   animation: slideIn 0.3s ease-out;
@@ -64,7 +64,8 @@
 
 .toast span {
   flex: 1;
-  text-align: center;
+  text-align: left;
+  padding-left: 0.25rem;
 }
 
 .toast-close {

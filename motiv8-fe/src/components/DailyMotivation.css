@@ -24,12 +24,18 @@
   font-weight: 600;
 }
 
+.next-workout-box a {
+  color: #646cff;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .next-workout-box {
   background-color: #fff;
   border: 2px solid #646cff;
   border-radius: 8px;
   padding: 0.5rem 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   text-align: center;
   color: #213547;
   font-size: 1rem;
@@ -94,17 +100,13 @@
 
 .rest-message {
   text-align: center;
-  padding: 3rem 1rem;
-  background-color: white;
-  border-radius: 8px;
   margin-top: 1rem;
 }
 
-.rest-message h3 {
-  color: #646cff;
-  font-size: 2rem;
-  font-weight: 600;
-  margin: 0;
+.rest-up-image {
+  max-width: 100%;
+  max-height: 550px;
+  border-radius: 8px;
 }
 
 .motivation-image-container {
@@ -117,7 +119,7 @@
 
 .motivation-image {
   max-width: 100%;
-  max-height: 400px;
+  max-height: 550px;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -157,7 +159,8 @@
     font-size: 1.25rem;
   }
 
-  .motivation-image {
+  .motivation-image,
+  .rest-up-image {
     max-height: 300px;
   }
 }

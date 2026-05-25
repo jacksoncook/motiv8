@@ -65,3 +65,23 @@
 .auth-button:active {
   background-color: #4248d7;
 }
+
+.secondary-button {
+  background-color: transparent;
+  color: #646cff;
+  border: 2px solid #646cff;
+}
+
+.secondary-button:hover {
+  background-color: #f0f0ff;
+}
+
+.secondary-button:active {
+  background-color: #e0e0ff;
+}
+
+.secondary-button.active {
+  background-color: #ede9fe;
+  color: #4338ca;
+  border-color: #4338ca;
+}

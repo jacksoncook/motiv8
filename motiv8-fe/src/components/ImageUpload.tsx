@@ -23,7 +23,7 @@ interface GenerateResponse {
   prompt: string;
 }
 
-function ImageUpload() {
+function ImageUpload({ selfieHeading = 'Your selfie' }: { selfieHeading?: string }) {
   const { user, updateUser } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
@@ -185,7 +185,7 @@ function ImageUpload() {
       {currentSelfieUrl && (
         <div className="current-selfie-section">
           <div className="header-with-tooltip">
-            <h3>Your selfie</h3>
+            <h3>{selfieHeading}</h3>
             <div className="tooltip-container">
               <span className="info-icon">ⓘ</span>
               <div className="tooltip-content">
@@ -213,7 +213,7 @@ function ImageUpload() {
               id="file-input"
             />
             <label htmlFor="file-input" className="file-label">
-              {uploading ? 'Uploading...' : 'Choose an image'}
+              {uploading ? 'Uploading...' : 'Update selfie'}
             </label>
           </div>
 
@@ -241,7 +241,7 @@ function ImageUpload() {
       {!currentSelfieUrl && (
         <div className="current-selfie-section">
           <div className="header-with-tooltip">
-            <h3>Your selfie</h3>
+            <h3>{selfieHeading}</h3>
             <div className="tooltip-container">
               <span className="info-icon">ⓘ</span>
               <div className="tooltip-content">
