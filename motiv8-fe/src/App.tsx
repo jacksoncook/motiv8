@@ -1,6 +1,6 @@
 import './App.css'
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Header from './components/Header'
 import AuthCallback from './pages/AuthCallback'
@@ -16,6 +16,7 @@ type OnboardingStep = 'upload' | 'settings' | null
 function AppContent() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [onboarding, setOnboarding] = useState<OnboardingStep>(null);
   const [showWelcomeToast, setShowWelcomeToast] = useState(false);
 
@@ -68,32 +69,37 @@ function AppContent() {
     );
   }
 
+  const onSettings = location.pathname === '/settings';
+
   return (
     <Routes>
       <Route path="/auth/callback" element={<AuthCallback />} />
-      <Route path="/" element={
+      <Route path="*" element={
         <div className="app">
           <Header showNav />
-          <div className="home-container">
-            <DailyMotivation />
+
+          {/* Always mounted — toggled via CSS to avoid remount/refetch */}
+          <div style={{ display: onSettings ? 'none' : '' }}>
+            <div className="home-container">
+              <DailyMotivation />
+            </div>
           </div>
-          {showWelcomeToast && (
-            <Toast message="Welcome to motiv8me!" type="success" duration={3000} onClose={() => setShowWelcomeToast(false)} />
-          )}
-        </div>
-      } />
-      <Route path="/settings" element={
-        <div className="app">
-          <Header showNav />
-          <div className="screen-container">
-            <div className="edit-settings-grid">
-              <ImageUpload selfieHeading="Selfie" />
-              <div className="settings-stack">
-                <WorkoutDays />
-                <AntiMotivationMode />
+
+          <div style={{ display: onSettings ? '' : 'none' }}>
+            <div className="screen-container">
+              <div className="edit-settings-grid">
+                <ImageUpload selfieHeading="Selfie" />
+                <div className="settings-stack">
+                  <WorkoutDays />
+                  <AntiMotivationMode />
+                </div>
               </div>
             </div>
           </div>
+
+          {showWelcomeToast && (
+            <Toast message="Welcome to motiv8me!" type="success" duration={3000} onClose={() => setShowWelcomeToast(false)} />
+          )}
         </div>
       } />
     </Routes>
