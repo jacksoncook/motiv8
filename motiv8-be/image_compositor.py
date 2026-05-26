@@ -11,17 +11,19 @@ logger = logging.getLogger(__name__)
 # Lazy import for rembg - only loaded when needed
 _rembg_loaded = False
 _remove_func = None
+_rembg_session = None
 
 
 def _ensure_rembg_loaded():
     """Lazy load rembg only when needed (for local generation)"""
-    global _rembg_loaded, _remove_func
+    global _rembg_loaded, _remove_func, _rembg_session
     if not _rembg_loaded:
         try:
-            from rembg import remove
-            _remove_func = remove
+            from rembg import remove, new_session
+            _rembg_session = new_session("isnet-general-use")
+            _remove_func = lambda img: remove(img, session=_rembg_session)
             _rembg_loaded = True
-            logger.info("rembg loaded successfully")
+            logger.info("rembg loaded successfully (isnet-general-use)")
         except ImportError as e:
             logger.error(f"Failed to import rembg: {e}")
             raise ImportError(
@@ -63,15 +65,19 @@ def composite_person_feathered(
     person_image: Image.Image,
     background_image: Image.Image,
     feather_radius: int = 8,
+    alpha_threshold: int = 15,
 ) -> Image.Image:
     """
     Composite a person onto a background using rembg for accurate subject
-    extraction, then blur the alpha channel edges to avoid a hard cutout seam.
+    extraction. The alpha mask is binarized first (eliminating semi-transparent
+    interior pixels), then GaussianBlur is applied — which on a binary mask
+    naturally only softens edge pixels while keeping the interior fully opaque.
 
     Args:
         person_image: Generated person image (RGB)
         background_image: Background scene image (RGB)
-        feather_radius: Gaussian blur radius applied to rembg alpha edges
+        feather_radius: Gaussian blur radius applied to alpha edges
+        alpha_threshold: Pixels above this value become fully opaque (0–255)
 
     Returns:
         Composited RGB image
@@ -84,16 +90,22 @@ def composite_person_feathered(
     if person.size != bg.size:
         bg = bg.resize(person.size, Image.LANCZOS)
 
-    # Remove background to get accurate person silhouette
+    # Remove background to get person silhouette
     person_rgba = _remove_func(person.convert("RGBA"))
     if isinstance(person_rgba, bytes):
         from io import BytesIO
         person_rgba = Image.open(BytesIO(person_rgba))
     person_rgba = person_rgba.convert("RGBA")
 
-    # Soften the hard rembg alpha edges
     r, g, b, alpha = person_rgba.split()
+
+    # Binarize: eliminate semi-transparent interior pixels caused by rembg uncertainty
+    alpha = alpha.point(lambda p: 255 if p > alpha_threshold else 0)
+
+    # Feather edges: blurring a binary mask only softens the boundary pixels;
+    # interior pixels (surrounded by 255s) remain nearly fully opaque
     alpha = alpha.filter(ImageFilter.GaussianBlur(radius=feather_radius))
+
     person_rgba = Image.merge("RGBA", (r, g, b, alpha))
 
     # Composite onto background

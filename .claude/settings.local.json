@@ -106,7 +106,8 @@
       "Bash(aws ssm start-session:*)",
       "Read(//opt/homebrew/Cellar/python@3.13/3.13.6/Frameworks/Python.framework/Versions/3.13/bin/**)",
       "Bash(/Users/jcook/motiv8/motiv8-be/.venv/bin/python -c \"import fastapi; print\\(fastapi.__version__\\)\")",
-      "Bash(./infrastructure/update-secrets.sh)"
+      "Bash(./infrastructure/update-secrets.sh)",
+      "Bash(find /Users/jcook/motiv8/motiv8-be -name *.py)"
     ],
     "deny": [],
     "ask": []

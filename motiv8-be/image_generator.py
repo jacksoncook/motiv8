@@ -215,12 +215,12 @@ class ImageGenerator:
                 - error: error message if failed
         """
         try:
-            # Step 1: Generate person with plain background
+            # Step 1: Generate person on green screen for clean rembg extraction
             logger.info("Step 1: Generating person image...")
             person_result = self.generate_image(
                 embedding_path=embedding_path,
                 image_path=image_path,
-                prompt=prompt,
+                prompt=prompt + ", green screen background",
                 negative_prompt=negative_prompt,
                 num_inference_steps=num_inference_steps,
                 guidance_scale=guidance_scale,
