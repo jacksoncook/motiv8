@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  motiv8me - Single-stack: API on EC2 behind ALB (ACM TLS),
+  motiv8me - Single-stack: API on EC2 at an Elastic IP (Caddy terminates TLS via Let's Encrypt),
   Frontend on S3 + CloudFront (ACM TLS), Route53 records for motiv8me.io + api.motiv8me.io,
   plus automatic frontend publish from UploadsBucket/deployment/motiv8-fe-dist.tar.gz (zero manual wiring).
 
@@ -276,12 +276,15 @@ Resources:
         - "\"v=DMARC1; p=none; adkim=s; aspf=s\""
 
   # ==========================================================
-  # API: ALB + ACM + ASG(size=1) (uvicorn :8000) + Route53
+  # API: EIP + Caddy (Let's Encrypt TLS) + ASG(size=1) + Route53
+  # ALB removed 2026-06: ALB (~$17/mo) + its public IPv4s (~$7/mo)
+  # fronted a single t3.small. Caddy on the instance terminates TLS;
+  # the Elastic IP gives the api A record a stable target.
   # ==========================================================
-  ApiAlbSecurityGroup:
+  ApiInstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow HTTP/HTTPS to API ALB
+      GroupDescription: API instance SG - Caddy serves 80/443 directly
       VpcId: !Ref VPCId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -296,20 +299,6 @@ Resources:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
 
-  ApiInstanceSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: API instance SG - only ALB can reach uvicorn
-      VpcId: !Ref VPCId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 8000
-          ToPort: 8000
-          SourceSecurityGroupId: !Ref ApiAlbSecurityGroup
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-
   # Allow API instances to connect to RDS
   RdsIngressFromApiInstances:
     Type: AWS::EC2::SecurityGroupIngress
@@ -320,74 +309,42 @@ Resources:
       ToPort: 5432
       SourceSecurityGroupId: !Ref ApiInstanceSecurityGroup
 
-  ApiCertificate:
-    Type: AWS::CertificateManager::Certificate
+  ApiElasticIP:
+    Type: AWS::EC2::EIP
     Properties:
-      DomainName: !Sub ${ApiSubdomain}.${RootDomainName}
-      ValidationMethod: DNS
-      DomainValidationOptions:
-        - DomainName: !Sub ${ApiSubdomain}.${RootDomainName}
-          HostedZoneId: !Ref HostedZoneId
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-api-eip
 
-  ApiLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  # Attached here (not in the main stack) so the whole ALB->EIP migration
+  # ships in one stack update; the role itself lives in the main stack.
+  ApiEipAssociationPolicy:
+    Type: AWS::IAM::Policy
     Properties:
-      Name: !Sub ${EnvironmentName}-api-alb
-      Scheme: internet-facing
-      Type: application
-      Subnets:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
-      SecurityGroups:
-        - !Ref ApiAlbSecurityGroup
+      PolicyName: AssociateApiEip
+      Roles:
+        - !Sub ${EnvironmentName}-motiv8-ec2-role
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ec2:AssociateAddress
+              - ec2:DescribeAddresses
+            Resource: '*'
 
-  ApiTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: !Sub ${EnvironmentName}-api-tg
-      VpcId: !Ref VPCId
-      TargetType: instance
-      Protocol: HTTP
-      Port: 8000
-      HealthCheckProtocol: HTTP
-      HealthCheckPath: /health
-      Matcher:
-        HttpCode: "200-399"
-
-  ApiHttpListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ApiLoadBalancer
-      Port: 80
-      Protocol: HTTP
-      DefaultActions:
-        - Type: redirect
-          RedirectConfig:
-            Protocol: HTTPS
-            Port: "443"
-            StatusCode: HTTP_301
-
-  ApiHttpsListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ApiLoadBalancer
-      Port: 443
-      Protocol: HTTPS
-      Certificates:
-        - CertificateArn: !Ref ApiCertificate
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ApiTargetGroup
-
+  # New web instances associate this EIP to themselves in UserData once
+  # the app is healthy, so a rolling deploy cuts traffic over atomically.
   ApiDnsRecord:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneId: !Ref HostedZoneId
       Name: !Sub ${ApiSubdomain}.${RootDomainName}
       Type: A
-      AliasTarget:
-        DNSName: !GetAtt ApiLoadBalancer.DNSName
-        HostedZoneId: !GetAtt ApiLoadBalancer.CanonicalHostedZoneID
+      TTL: "60"
+      ResourceRecords:
+        - !Ref ApiElasticIP
 
   # ==========================================================
   # Web App LaunchTemplate + ASG (Desired=1)
@@ -434,7 +391,8 @@ Resources:
             echo "${ApiDeployVersion}" > /etc/motiv8-deploy-version
 
             yum update -y
-            yum install -y awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc
+            yum install -y awscli aws-cfn-bootstrap git python3 python3-pip python3-devel gcc cronie
+            systemctl enable --now crond || true
 
             mkdir -p /app
             aws s3 cp s3://${UploadsBucket}/deployment/motiv8-be.tar.gz /tmp/motiv8-be.tar.gz --region ${AWS::Region}
@@ -493,7 +451,7 @@ Resources:
             WorkingDirectory=/app/motiv8-be
             EnvironmentFile=/etc/motiv8-webapp.env
             Environment="PATH=/app/motiv8-be/venv/bin:/usr/local/bin:/usr/bin:/bin"
-            ExecStart=/app/motiv8-be/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips="*"
+            ExecStart=/app/motiv8-be/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips="*"
             Restart=always
             RestartSec=10
 
@@ -530,6 +488,77 @@ Resources:
             # Final check: if still failing, trigger trap via non-zero exit
             curl -fsS "http://127.0.0.1:8000/health" >/dev/null
 
+            # ---- Caddy: TLS termination via Let's Encrypt (replaces ALB + ACM) ----
+            API_DOMAIN="${ApiSubdomain}.${RootDomainName}"
+            curl -fL "https://github.com/caddyserver/caddy/releases/download/v2.10.0/caddy_2.10.0_linux_amd64.tar.gz" -o /tmp/caddy.tar.gz
+            tar -xzf /tmp/caddy.tar.gz -C /tmp caddy
+            mv /tmp/caddy /usr/local/bin/caddy
+            chmod +x /usr/local/bin/caddy
+            # Bind 80/443 as non-root even on older systemd without AmbientCapabilities
+            setcap cap_net_bind_service=+ep /usr/local/bin/caddy
+            useradd --system --home-dir /var/lib/caddy --create-home --shell /sbin/nologin caddy || true
+            mkdir -p /etc/caddy /var/lib/caddy
+
+            cat > /etc/caddy/Caddyfile << CADDYEOF
+            $API_DOMAIN {
+                reverse_proxy 127.0.0.1:8000
+            }
+            CADDYEOF
+
+            # Reuse Let's Encrypt certs across instance replacements (avoids
+            # re-issuance waits and rate limits on every deploy)
+            aws s3 sync s3://${UploadsBucket}/caddy-data/ /var/lib/caddy/ --region ${AWS::Region} || true
+            chown -R caddy:caddy /var/lib/caddy
+
+            cat > /etc/systemd/system/caddy.service << 'CADDYSVC'
+            [Unit]
+            Description=Caddy reverse proxy (TLS for motiv8 API)
+            After=network.target motiv8-webapp.service
+
+            [Service]
+            User=caddy
+            Group=caddy
+            Environment=XDG_DATA_HOME=/var/lib
+            Environment=XDG_CONFIG_HOME=/etc
+            ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile
+            ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile
+            AmbientCapabilities=CAP_NET_BIND_SERVICE
+            Restart=always
+            RestartSec=5
+
+            [Install]
+            WantedBy=multi-user.target
+            CADDYSVC
+
+            systemctl daemon-reload
+            systemctl enable caddy.service
+            systemctl restart caddy.service
+
+            # ---- Take over the API Elastic IP (cutover point of the deploy) ----
+            IMDS_TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+            INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+            aws ec2 associate-address \
+              --allocation-id ${ApiElasticIP.AllocationId} \
+              --instance-id "$INSTANCE_ID" \
+              --allow-reassociation \
+              --region ${AWS::Region}
+
+            # Non-fatal TLS check: on the very first cutover, DNS may still point
+            # at the old ALB so cert issuance lags until DNS flips. Caddy keeps
+            # retrying issuance on its own; don't fail the deploy over it.
+            for i in $(seq 1 24); do
+              if curl -fsS --resolve "$API_DOMAIN:443:127.0.0.1" "https://$API_DOMAIN/health" >/dev/null 2>&1; then
+                echo "TLS healthcheck OK"
+                break
+              fi
+              echo "TLS not ready yet ($i/24) ..."
+              sleep 5
+            done
+
+            # Persist certs now and daily (covers ~60-day renewals)
+            aws s3 sync /var/lib/caddy/ s3://${UploadsBucket}/caddy-data/ --region ${AWS::Region} || true
+            echo "0 3 * * * root aws s3 sync /var/lib/caddy/ s3://${UploadsBucket}/caddy-data/ --region ${AWS::Region}" > /etc/cron.d/caddy-backup
+
             echo "Signaling CloudFormation SUCCESS for $RESOURCE_NAME"
             $CFN_SIGNAL -e 0 --stack "$STACK_NAME" --resource "$RESOURCE_NAME" --region "$REGION"
 
@@ -538,6 +567,8 @@ Resources:
 
   WebAppAutoScalingGroupV2:
     Type: AWS::AutoScaling::AutoScalingGroup
+    # Instances claim the API EIP in UserData, so the policy must exist first
+    DependsOn: ApiEipAssociationPolicy
     Properties:
       AutoScalingGroupName: !Sub webapp-asg
       VPCZoneIdentifier:
@@ -546,10 +577,10 @@ Resources:
       MinSize: "1"
       MaxSize: "2"
       DesiredCapacity: "1"
-      HealthCheckType: ELB
-      HealthCheckGracePeriod: 900
-      TargetGroupARNs:
-        - !Ref ApiTargetGroup
+      # EC2-level health only since the ALB is gone; app-level failures are
+      # covered by systemd Restart=always and the deploy-time health gate.
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
       LaunchTemplate:
         LaunchTemplateId: !Ref WebAppLaunchTemplate
         Version: !GetAtt WebAppLaunchTemplate.LatestVersionNumber
@@ -1120,12 +1151,12 @@ Outputs:
     Value: !GetAtt FrontendDistribution.DomainName
 
   ApiUrl:
-    Description: API URL (ALB + ACM)
+    Description: API URL (EIP + Caddy/Let's Encrypt)
     Value: !Sub https://${ApiSubdomain}.${RootDomainName}
 
-  ApiAlbDns:
-    Description: API ALB DNS
-    Value: !GetAtt ApiLoadBalancer.DNSName
+  ApiElasticIp:
+    Description: Elastic IP behind the api A record
+    Value: !Ref ApiElasticIP
 
   WebAppAsgName:
     Description: API AutoScaling Group name (DesiredCapacity=1)

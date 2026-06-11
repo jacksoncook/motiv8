@@ -10,26 +10,73 @@ This guide explains how to deploy motiv8me to AWS using CloudFormation, with a c
    - Handles user authentication
    - Manages selfie uploads
    - Workout day settings
-   - Serves React frontend
-   - Cost: ~$15/month
+   - Serves the API at an Elastic IP; Caddy on the instance terminates TLS (Let's Encrypt)
+   - Cost: ~$15/month + ~$4/month for the Elastic IP
 
 2. **Batch EC2 (Scheduled Daily - g4dn.xlarge)**
-   - Runs once per day at 6 AM
+   - Started daily at 15:00 UTC by EventBridge + Lambda
    - Generates images for users with today as workout day
    - Sends motivation emails
    - Auto-shuts down after completion
-   - Cost: ~$40/month (1 hour/day)
+   - Cost: ~$4/month (runs ~15 min/day, billed hourly usage was 7.8 hrs in May 2026)
 
 3. **RDS PostgreSQL (db.t3.micro)**
    - User database
-   - Cost: ~$15/month
+   - Cost: ~$16/month
 
-4. **S3 Buckets**
-   - Uploads (selfies, embeddings, generated images)
-   - Frontend static files
-   - Cost: ~$10/month
+4. **S3 Buckets + CloudFront**
+   - Uploads (selfies, embeddings, generated images), frontend static files
+   - Cost: <$1/month at current volume
 
-**Total Estimated Cost: ~$80/month**
+5. **EBS volumes (30GB web + 50GB batch, gp3)**
+   - Billed even while the batch instance is stopped
+   - Cost: ~$6/month
+
+### Actual costs (from Cost Explorer, May 2026)
+
+| Line item | May 2026 actual |
+|---|---|
+| EC2 compute (t3.small $15.45 + g4dn $4.11) | $19.56 |
+| ALB *(removed June 2026)* | $16.75 |
+| VPC public IPv4 charges *(~4 IPs; drops to 1-2 after ALB removal)* | $14.94 |
+| RDS | $15.75 |
+| EBS ("EC2 - Other") | $6.43 |
+| S3, Route 53, Secrets Manager | ~$1 |
+| Tax | $7.83 |
+| **Total** | **~$82/month** |
+
+**Projected after ALB removal: ~$55/month** (ALB fee gone, IPv4 charges drop to the
+single API Elastic IP plus the batch instance's IP while it runs).
+
+> Note: an earlier version of this doc estimated $80/month with the GPU at $40/month.
+> The GPU actually costs ~$4/month — batch runs finish in ~15 minutes, not an hour.
+
+### One-time migration: removing the ALB (June 2026)
+
+The API moved from `ALB + ACM` to `Elastic IP + Caddy (Let's Encrypt)` terminating TLS
+on the web instance. The whole migration ships through the normal `./deploy-all.sh` —
+the `AssociateApiEip` IAM policy the instance needs to claim the EIP is attached to the
+main-stack role *from the EC2 stack* (see `ApiEipAssociationPolicy`), specifically so the
+main stack doesn't need an update.
+
+> **Warning:** do not casually update `production-motiv8-main` — the deployed stack
+> predates the Apple Sign-In parameters in the local template, and the live AppSecrets
+> values are maintained out-of-band by `update-secrets.sh`. A main-stack update would
+> re-render the secret from the template and drop those keys.
+>
+> This is now **enforced by a stack policy** (`infrastructure/stack-policy-main.json`,
+> applied via `aws cloudformation set-stack-policy`): any update that modifies
+> `AppSecrets` is denied server-side, and the `Database` can never be replaced or
+> deleted by an update. Both stacks also have termination protection enabled.
+> To intentionally update AppSecrets via CloudFormation, pass an overriding
+> `--stack-policy-during-update-body` — and reconcile `update-secrets.sh` first.
+
+**Expect ~5-15 minutes of API downtime during this one deploy**: the ALB stops serving
+when the update starts, and the API comes back once the new instance holds the EIP,
+DNS has flipped (60s TTL), and Caddy has obtained its first Let's Encrypt certificate.
+Subsequent deploys cut over near-instantly: the new instance restores certs from
+`s3://<UploadsBucket>/caddy-data/`, starts Caddy, then steals the EIP only after the
+app health check passes.
 
 ## Prerequisites
 
